@@ -37,20 +37,28 @@ namespace MackTwin.Revit
         /// <summary>Gera a vista e pinta as salas casadas. Devolve a vista criada.</summary>
         /// <param name="classificar">Como obter o estado da sala — normalmente o resumo na janela escolhida.</param>
         /// <param name="pintados">Quantas salas receberam cor.</param>
+        /// <param name="volumesAtivados">
+        /// Se foi preciso ligar o cálculo de volumes do projeto. O Revit só desenha Rooms em
+        /// vistas 3D com "Áreas e volumes" ativo (Cálculos de área e volume); o padrão dos
+        /// projetos é "Somente áreas", e aí a vista sai sem sala nenhuma — tudo cinza.
+        /// </param>
         /// <exception cref="InvalidOperationException">O modelo não tem tipo de vista 3D.</exception>
         public View3D GerarVistaDeConforto(
             ConjuntoDeAmbientes conjunto,
             Func<Ambiente, ClassificacaoDeConforto> classificar,
-            out int pintados)
+            out int pintados,
+            out bool volumesAtivados)
         {
             var tipoDaVista = LocalizarTipoDaVista3D()
                 ?? throw new InvalidOperationException("O modelo não tem um tipo de vista 3D disponível.");
 
             View3D vista;
+            volumesAtivados = false;
 
             using (var transacao = new Transaction(_documento, ConfiguracaoDePinturaDeAmbientes.NomeDaTransacaoDeVista))
             {
                 transacao.Start();
+                volumesAtivados = GarantirCalculoDeVolumes();
                 vista = CriarVista3D(tipoDaVista, MontarNomeDaVista());
                 PintorDeAmbientes.ExibirCategoriaDeRooms(_documento, vista);
                 PrepararParaConforto(vista);
@@ -59,6 +67,27 @@ namespace MackTwin.Revit
 
             pintados = PintorDeAmbientes.Pintar(_documento, vista, conjunto, classificar);
             return vista;
+        }
+
+        /// <summary>
+        /// Liga o cálculo de volumes do projeto, sem o qual o Revit não desenha Rooms em 3D.
+        /// Devolve true se precisou ligar. Precisa de transação ativa.
+        /// </summary>
+        /// <remarks>
+        /// É uma configuração do PROJETO (vale para todas as vistas), e por isso é a única coisa
+        /// que este gerador altera fora da vista criada. O custo é um recálculo de volumes de
+        /// Room, pequeno em modelos de teste e aceitável no CCT; quem preferir desligar depois
+        /// encontra a opção em Arquitetura › Ambiente e Área › Cálculos de área e volume.
+        /// </remarks>
+        private bool GarantirCalculoDeVolumes()
+        {
+            var configuracao = AreaVolumeSettings.GetAreaVolumeSettings(_documento);
+
+            if (configuracao.ComputeVolumes)
+                return false;
+
+            configuracao.ComputeVolumes = true;
+            return true;
         }
 
         // ── Configuração gráfica da vista de conforto ────────────────────

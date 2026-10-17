@@ -528,11 +528,16 @@ namespace MackTwin.Interface
                 }
 
                 var gerador = new GeradorDeVistaRevit(uiDocumento.Document);
-                var vista = gerador.GerarVistaDeConforto(conjunto, ambiente => Classificar(ambiente, janela), out int pintados);
+                var vista = gerador.GerarVistaDeConforto(
+                    conjunto, ambiente => Classificar(ambiente, janela), out int pintados, out bool volumesAtivados);
                 uiDocumento.ActiveView = vista;
                 uiDocumento.RefreshActiveView();
 
-                Informar($"Vista \"{vista.Name}\" criada com {pintados} sala(s) pintada(s).");
+                string observacao = volumesAtivados
+                    ? " O cálculo de volumes do projeto foi LIGADO (Áreas e volumes): sem ele o Revit não desenha Rooms em 3D."
+                    : string.Empty;
+
+                Informar($"Vista \"{vista.Name}\" criada com {pintados} sala(s) pintada(s).{observacao}");
             });
         }
 

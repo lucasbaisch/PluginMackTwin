@@ -162,15 +162,22 @@ namespace MackTwin.Revit
 
             sobreposicao.SetSurfaceForegroundPatternVisible(true);
             sobreposicao.SetSurfaceForegroundPatternColor(cor);
+            sobreposicao.SetSurfaceBackgroundPatternVisible(true);
+            sobreposicao.SetSurfaceBackgroundPatternColor(cor);
             sobreposicao.SetCutForegroundPatternVisible(true);
             sobreposicao.SetCutForegroundPatternColor(cor);
+            sobreposicao.SetCutBackgroundPatternVisible(true);
+            sobreposicao.SetCutBackgroundPatternColor(cor);
             sobreposicao.SetProjectionLineColor(cor);
+            sobreposicao.SetCutLineColor(cor);
             sobreposicao.SetSurfaceTransparency(ConfiguracaoDePinturaDeAmbientes.TransparenciaDaSuperficie);
 
             if (solido != null)
             {
                 sobreposicao.SetSurfaceForegroundPatternId(solido.Id);
+                sobreposicao.SetSurfaceBackgroundPatternId(solido.Id);
                 sobreposicao.SetCutForegroundPatternId(solido.Id);
+                sobreposicao.SetCutBackgroundPatternId(solido.Id);
             }
 
             return sobreposicao;
