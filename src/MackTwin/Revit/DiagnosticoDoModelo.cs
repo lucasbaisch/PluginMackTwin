@@ -57,6 +57,20 @@ namespace MackTwin.Revit
                     linhas.Add($"    subcategoria \"{subcategoria.Name}\": {(vista.GetCategoryHidden(subcategoria.Id) ? "OCULTA" : "visível")}");
             }
 
+            linhas.Add("Esquema de cores de Ambientes na vista: " +
+                       (EsquemaDeCoresDeConforto.NomeDoEsquemaNaVista(documento, vista) is { } nomeDoEsquema
+                           ? $"\"{nomeDoEsquema}\""
+                           : "NENHUM — sem esquema o Revit não pinta Rooms"));
+
+            var esquemasDeRooms = new FilteredElementCollector(documento)
+                .OfClass(typeof(ColorFillScheme))
+                .Cast<ColorFillScheme>()
+                .Where(esquema => esquema.CategoryId == new ElementId(BuiltInCategory.OST_Rooms))
+                .Select(esquema => esquema.Name)
+                .ToList();
+
+            linhas.Add($"Esquemas de cores de Ambientes no projeto: {(esquemasDeRooms.Count == 0 ? "nenhum" : string.Join(", ", esquemasDeRooms))}");
+
             // ── rooms ──
             var rooms = new FilteredElementCollector(documento)
                 .OfCategory(BuiltInCategory.OST_Rooms)
@@ -80,14 +94,16 @@ namespace MackTwin.Revit
                     room.Location == null ? "NÃO colocado" : "colocado",
                     area, volume, deslocamento, room.Level?.Name, room.Id.Value));
 
+                string estado = room.LookupParameter(EsquemaDeCoresDeConforto.NomeDoParametro)?.AsString()
+                                ?? "(parâmetro ausente)";
+
                 var sobreposicao = vista.GetElementOverrides(room.Id);
-                var cor = sobreposicao.SurfaceForegroundPatternColor;
+                var cor = sobreposicao.ProjectionLineColor;
 
                 linhas.Add(string.Format(cultura,
-                    "      sobreposição na vista ativa: padrão de superfície {0}, cor {1}, transparência {2}",
-                    sobreposicao.IsSurfaceForegroundPatternVisible ? "visível" : "não visível",
-                    cor.IsValid ? $"RGB({cor.Red},{cor.Green},{cor.Blue})" : "nenhuma",
-                    sobreposicao.Transparency));
+                    "      parâmetro \"{0}\" = \"{1}\"; linhas na vista ativa: {2}",
+                    EsquemaDeCoresDeConforto.NomeDoParametro, estado,
+                    cor.IsValid ? $"RGB({cor.Red},{cor.Green},{cor.Blue})" : "sem sobreposição"));
             }
 
             // ── salas das planilhas ──

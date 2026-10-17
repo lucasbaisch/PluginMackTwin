@@ -455,14 +455,14 @@ namespace MackTwin.Interface
                     return;
                 }
 
-                int pintados = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, ambiente => Classificar(ambiente, janela));
+                var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, ambiente => Classificar(ambiente, janela));
                 uiDocumento.RefreshActiveView();
 
-                string observacao = vista.ViewTemplateId != DB.ElementId.InvalidElementId
-                    ? " A vista usa template: se a cor não aparecer, ele controla a visibilidade ou as sobreposições — use \"Gerar vista 3D\"."
-                    : " Na planta a cor aparece pelo preenchimento interno do Room (ligado automaticamente em Visibilidade/Gráficos › Ambientes).";
+                string observacao = pintura.Aviso != null
+                    ? " " + pintura.Aviso
+                    : $" Esquema de cores \"{EsquemaDeCoresDeConforto.NomeDoEsquema}\" aplicado à vista; o estado de cada sala está no parâmetro \"{EsquemaDeCoresDeConforto.NomeDoParametro}\" do Room.";
 
-                Informar($"{pintados} sala(s) pintada(s) em \"{vista.Name}\".{observacao}");
+                Informar($"{pintura.Pintados} sala(s) pintada(s) em \"{vista.Name}\".{observacao}");
             });
         }
 
@@ -529,13 +529,18 @@ namespace MackTwin.Interface
 
                 var gerador = new GeradorDeVistaRevit(uiDocumento.Document);
                 var vista = gerador.GerarVistaDeConforto(
-                    conjunto, ambiente => Classificar(ambiente, janela), out int pintados, out bool volumesAtivados);
+                    conjunto, ambiente => Classificar(ambiente, janela),
+                    out int pintados, out bool volumesAtivados, out string? avisoDaPintura);
                 uiDocumento.ActiveView = vista;
                 uiDocumento.RefreshActiveView();
 
-                string observacao = volumesAtivados
-                    ? " O cálculo de volumes do projeto foi LIGADO (Áreas e volumes): sem ele o Revit não desenha Rooms em 3D."
-                    : string.Empty;
+                string observacao = string.Empty;
+
+                if (volumesAtivados)
+                    observacao += " O cálculo de volumes do projeto foi LIGADO (Áreas e volumes): sem ele o Revit não desenha Rooms em 3D.";
+
+                if (avisoDaPintura != null)
+                    observacao += " " + avisoDaPintura;
 
                 Informar($"Vista \"{vista.Name}\" criada com {pintados} sala(s) pintada(s).{observacao}");
             });

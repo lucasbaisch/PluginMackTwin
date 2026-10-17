@@ -47,13 +47,15 @@ namespace MackTwin.Revit
             ConjuntoDeAmbientes conjunto,
             Func<Ambiente, ClassificacaoDeConforto> classificar,
             out int pintados,
-            out bool volumesAtivados)
+            out bool volumesAtivados,
+            out string? avisoDaPintura)
         {
             var tipoDaVista = LocalizarTipoDaVista3D()
                 ?? throw new InvalidOperationException("O modelo não tem um tipo de vista 3D disponível.");
 
             View3D vista;
             volumesAtivados = false;
+            avisoDaPintura = null;
 
             using (var transacao = new Transaction(_documento, ConfiguracaoDePinturaDeAmbientes.NomeDaTransacaoDeVista))
             {
@@ -65,7 +67,9 @@ namespace MackTwin.Revit
                 transacao.Commit();
             }
 
-            pintados = PintorDeAmbientes.Pintar(_documento, vista, conjunto, classificar);
+            var pintura = PintorDeAmbientes.Pintar(_documento, vista, conjunto, classificar);
+            pintados = pintura.Pintados;
+            avisoDaPintura = pintura.Aviso;
             return vista;
         }
 
