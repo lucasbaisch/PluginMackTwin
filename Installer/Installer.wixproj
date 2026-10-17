@@ -1,7 +1,7 @@
 <Project Sdk="WixToolset.Sdk/5.0.2">
 
   <PropertyGroup>
-    <OutputName>PluginCAISM-Setup</OutputName>
+    <OutputName>MackTwin-Setup</OutputName>
     <OutputType>Package</OutputType>
     <!-- InstallerPlatform = arquitetura do MSI. Platforms = a plataforma MSBuild,
          que precisa casar com o 'Any CPU' da solução; sem isso o build da solução
@@ -14,9 +14,9 @@
   <ItemGroup>
     <!-- Garante que o plugin seja compilado ANTES de o instalador empacotar o bin\.
          Não é referência de assembly: o WiX só consome os arquivos de saída, e é
-         daqui que sai a variável $(var.PluginCAISM.TargetDir) usada no Package.wxs
+         daqui que sai a variável $(var.MackTwin.TargetDir) usada no Package.wxs
          (por isso o MSI segue automaticamente a configuração Debug/Release). -->
-    <ProjectReference Include="..\PluginCAISM\PluginCAISM.csproj" />
+    <ProjectReference Include="..\src\MackTwin\MackTwin.csproj" />
   </ItemGroup>
 
   <ItemGroup>

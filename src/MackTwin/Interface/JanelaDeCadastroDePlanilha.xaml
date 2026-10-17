@@ -1,0 +1,109 @@
+<Window x:Class="MackTwin.Interface.JanelaDeCadastroDePlanilha"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Adicionar planilha de sensores"
+        Height="340" Width="620"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="#F5F5F7" FontFamily="Segoe UI" FontSize="12"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="BrushBd"        Color="#E6E6EA"/>
+        <SolidColorBrush x:Key="BrushTx"        Color="#1C1C1E"/>
+        <SolidColorBrush x:Key="BrushTx2"       Color="#4A4A52"/>
+        <SolidColorBrush x:Key="BrushBrand"     Color="#E30613"/>
+        <SolidColorBrush x:Key="BrushBrandDark" Color="#B5050F"/>
+        <SolidColorBrush x:Key="BrushBrandSoft" Color="#FDECEE"/>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBd}"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushTx}"/>
+        </Style>
+
+        <Style x:Key="EstiloBotaoPrincipal" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                                Background="{StaticResource BrushBrand}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrandDark}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#D9D9DE"/>
+                                <Setter Property="Foreground" Value="#9A9AA3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EstiloBotaoSecundario" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource BrushTx}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                                Background="White" BorderBrush="{StaticResource BrushBd}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrandSoft}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushBrand}"/>
+                                <Setter Property="Foreground" Value="{StaticResource BrushBrandDark}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#9A9AA3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="16" Background="White" BorderBrush="{StaticResource BrushBd}" BorderThickness="1"
+            CornerRadius="10" Padding="18">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Nome (como aparece no painel)" Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4"/>
+            <TextBox Grid.Row="1" x:Name="CaixaNome" Margin="0,0,0,12"/>
+
+            <TextBlock Grid.Row="2" Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4" TextWrapping="Wrap"
+                       Text="Endereço da planilha Google — o de edição serve (…/spreadsheets/d/{id}/edit?gid=0). A planilha precisa estar compartilhada como &quot;qualquer pessoa com o link&quot;."/>
+            <TextBox Grid.Row="3" x:Name="CaixaUrl" Margin="0,0,0,12"/>
+
+            <TextBlock Grid.Row="4" x:Name="TextoResultado" Foreground="{StaticResource BrushTx2}" TextWrapping="Wrap"
+                       VerticalAlignment="Top"/>
+
+            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="BotaoTestar" Content="Testar conexão" Style="{StaticResource EstiloBotaoSecundario}"
+                        Margin="0,0,8,0" Click="BotaoTestar_Click"/>
+                <Button Content="Cancelar" Style="{StaticResource EstiloBotaoSecundario}" Margin="0,0,8,0" IsCancel="True"/>
+                <Button x:Name="BotaoSalvar" Content="Salvar" Style="{StaticResource EstiloBotaoPrincipal}"
+                        IsDefault="True" Click="BotaoSalvar_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,113 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <RootNamespace>MackTwin</RootNamespace>
+    <AssemblyName>MackTwin</AssemblyName>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <!-- LiveCharts desenha a série temporal das leituras. O EPPlus saiu junto com a leitura
+         de planilhas Excel do modelo anterior: a fonte de dados agora é CSV (planilha Google). -->
+    <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2026\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2026\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ícone do botão da ribbon (recorte do círculo-M do logo Mackenzie, 64 px). Embutido no
+         DLL E copiado para Assets\ na saída: sob o AddinManager só o DLL vai para %TEMP%, então
+         o caminho em disco não existe e o recurso embutido é o único que resolve
+         (ver ConfiguracaoDaRibbon.NomeDoRecursoDoIcone). -->
+    <EmbeddedResource Include="Assets\icone-macktwin.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <!-- Logos exibidos no cabeçalho da janela, como recursos WPF
+         (pack://application:,,,/MackTwin;component/Assets/...). -->
+    <Resource Include="Assets\logo-mackenzie.png" />
+    <Resource Include="Assets\logo-limiar.png" />
+  </ItemGroup>
+
+  <!-- ── Implantação no Revit ────────────────────────────────────────────────────────
+       O manifesto MackTwin.addin aponta para a pasta abaixo, e NÃO para bin\Debug.
+       A razão é prática: o Revit trava o arquivo que carrega, e enquanto isso era a
+       própria saída do build, toda compilação feita com o Revit aberto morria na etapa
+       de cópia — o binário ficava pronto em obj\ e nunca chegava a bin\.
+
+       Com a separação, compilar com o Revit aberto passa a funcionar sempre: o build
+       termina em sucesso e só a cópia para a pasta de implantação é pulada, com aviso.
+       Continua sendo necessário fechar o Revit para CARREGAR a versão nova — o que não
+       se pode evitar —, mas não mais para compilá-la.
+
+       ContinueOnError="WarnAndContinue" é o que garante isso: uma falha aqui não é falha
+       de build, porque o compilador já entregou o seu produto. -->
+  <PropertyGroup>
+    <PastaDeImplantacaoNoRevit>$(APPDATA)\Autodesk\Revit\Addins\2026\MackTwin\</PastaDeImplantacaoNoRevit>
+  </PropertyGroup>
+
+  <Target Name="ImplantarNoRevit" AfterTargets="Build">
+    <ItemGroup>
+      <!-- Tudo o que o build produziu, e não só o DLL do plugin: as dependências
+           (LiveCharts) e os arquivos de configuração do runtime precisam
+           acompanhar, ou o Revit carrega o complemento e ele falha ao abrir a janela. -->
+      <ArquivosImplantaveis Include="$(TargetDir)**\*.*" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(PastaDeImplantacaoNoRevit)" ContinueOnError="WarnAndContinue" />
+
+    <Copy SourceFiles="@(ArquivosImplantaveis)"
+          DestinationFiles="@(ArquivosImplantaveis->'$(PastaDeImplantacaoNoRevit)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue" />
+
+    <Message Importance="high"
+             Text="Implantação do plug-in: $(PastaDeImplantacaoNoRevit) (se houver aviso de cópia acima, o Revit está aberto e a versão nova só será carregada depois de fechá-lo)" />
+  </Target>
+
+  <!-- ── Geração do instalador MSI ───────────────────────────────────────────────────
+       O Visual Studio não carrega projetos .wixproj sem a extensão HeatWave (FireGiant):
+       acrescentar Installer\Installer.wixproj ao .slnx não resolve, porque o VS ignora o
+       projeto em silêncio, sem sequer marcar erro. Chamar o MSBuild por fora, como um
+       processo próprio, contorna isso — o `dotnet build` resolve o WiX via NuGet e não
+       depende de extensão nenhuma.
+
+       Só roda em Release, para não pagar o empacotamento (~8 s) no ciclo de
+       desenvolvimento com o AddinManager, que compila em Debug.
+
+       BuildProjectReferences=false é o que impede a recursão: o Installer.wixproj
+       referencia ESTE projeto, e sem a flag o build de dentro recompilaria o plug-in —
+       que dispararia este alvo outra vez. A flag também evita que os dois builds
+       disputem obj\ e bin\ ao mesmo tempo. GerandoInstalador é uma segunda trava, caso
+       alguém invoque o wixproj diretamente. -->
+  <Target Name="GerarInstaladorMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(GerandoInstalador)' != 'true'">
+
+    <PropertyGroup>
+      <ProjetoDoInstalador>$(MSBuildThisFileDirectory)..\..\Installer\Installer.wixproj</ProjetoDoInstalador>
+      <MsiGerado>$(MSBuildThisFileDirectory)..\..\Installer\bin\$(Configuration)\MackTwin-Setup.msi</MsiGerado>
+    </PropertyGroup>
+
+    <Message Importance="high" Text="Empacotando o instalador MSI..." />
+
+    <Exec Command="dotnet build &quot;$(ProjetoDoInstalador)&quot; -c $(Configuration) -p:GerandoInstalador=true -p:BuildProjectReferences=false"
+          WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
+
+    <Message Importance="high" Text="Instalador: $(MsiGerado)" />
+  </Target>
+
+</Project>

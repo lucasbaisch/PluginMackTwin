@@ -1,0 +1,342 @@
+<Window x:Class="MackTwin.Interface.JanelaMackTwin"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MackTwin — Painel de sensores por ambiente"
+        Height="800" Width="1240"
+        MinHeight="640" MinWidth="1000"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False"
+        Background="#F5F5F7" FontFamily="Segoe UI" FontSize="12"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
+
+    <Window.Resources>
+        <!-- ── Paleta: branco, cinzas neutros e o vermelho Mackenzie ──────── -->
+        <SolidColorBrush x:Key="BrushBg"        Color="#F5F5F7"/>
+        <SolidColorBrush x:Key="BrushSurface"   Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BrushSubtle"    Color="#FAFAFB"/>
+        <SolidColorBrush x:Key="BrushBd"        Color="#E6E6EA"/>
+        <SolidColorBrush x:Key="BrushTx"        Color="#1C1C1E"/>
+        <SolidColorBrush x:Key="BrushTx2"       Color="#4A4A52"/>
+        <SolidColorBrush x:Key="BrushTx3"       Color="#8A8A94"/>
+        <SolidColorBrush x:Key="BrushBrand"     Color="#E30613"/>
+        <SolidColorBrush x:Key="BrushBrandDark" Color="#B5050F"/>
+        <SolidColorBrush x:Key="BrushBrandSoft" Color="#FDECEE"/>
+
+        <!-- ── Superfícies ──────────────────────────────────────────────── -->
+        <Style x:Key="EstiloCartao" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBd}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+
+        <Style x:Key="EstiloTituloDeSecao" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushTx3}"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+
+        <!-- ── Botões ───────────────────────────────────────────────────── -->
+        <Style x:Key="EstiloBotaoPrincipal" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                                Background="{StaticResource BrushBrand}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrandDark}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#D9D9DE"/>
+                                <Setter Property="Foreground" Value="#9A9AA3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EstiloBotaoSecundario" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource BrushTx}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}"
+                                Background="{StaticResource BrushSurface}"
+                                BorderBrush="{StaticResource BrushBd}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrandSoft}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushBrand}"/>
+                                <Setter Property="Foreground" Value="{StaticResource BrushBrandDark}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#9A9AA3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Lista de salas: item com barra vermelha quando selecionado ─ -->
+        <Style x:Key="EstiloItemDeSala" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="10,8" Margin="0,0,0,4"
+                                Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushSubtle}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrandSoft}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushBrand}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Abas: texto com sublinhado vermelho na ativa ──────────────── -->
+        <Style x:Key="EstiloAba" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource BrushTx3}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" Padding="4,6,4,8" Margin="0,0,18,0"
+                                BorderThickness="0,0,0,2" BorderBrush="Transparent" Background="Transparent">
+                            <ContentPresenter ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource BrushTx}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushBrand}"/>
+                                <Setter Property="Foreground" Value="{StaticResource BrushBrand}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Cabeçalho: logo Mackenzie · título · controles · logo Limiar ── -->
+        <Border Grid.Row="0" Style="{StaticResource EstiloCartao}" Padding="18,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Grid.Column="0" Source="/MackTwin;component/Assets/logo-mackenzie.png"
+                       Height="40" VerticalAlignment="Center" Margin="0,0,18,0"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                <Border Grid.Column="1" Width="1" Background="{StaticResource BrushBd}" Margin="0,2,18,2"/>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="MackTwin" FontSize="18" FontWeight="Bold" Foreground="{StaticResource BrushBrand}"/>
+                        <TextBlock Text="Painel de sensores por ambiente" FontSize="18" FontWeight="Light"
+                                   Foreground="{StaticResource BrushTx}" Margin="10,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock x:Name="TextoStatus" Text="Aguardando a primeira atualização…"
+                               Foreground="{StaticResource BrushTx3}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,18,0">
+                    <ProgressBar x:Name="Spinner" Width="110" Height="3" IsIndeterminate="True"
+                                 Foreground="{StaticResource BrushBrand}" BorderThickness="0"
+                                 Visibility="Collapsed" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="CaixaAuto" Content="Atualizar a cada 60 s" IsChecked="True"
+                              VerticalAlignment="Center" Margin="0,0,14,0" Foreground="{StaticResource BrushTx2}"/>
+                    <Button x:Name="BotaoAtualizar" Content="Atualizar agora"
+                            Style="{StaticResource EstiloBotaoPrincipal}" Click="BotaoAtualizar_Click"/>
+                </StackPanel>
+
+                <Image Grid.Column="4" Source="/MackTwin;component/Assets/logo-limiar.png"
+                       Height="46" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Corpo ───────────────────────────────────────────────────── -->
+        <Grid Grid.Row="1" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="260"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Salas -->
+            <Border Grid.Column="0" Style="{StaticResource EstiloCartao}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="SALAS" Style="{StaticResource EstiloTituloDeSecao}"/>
+                    <Expander DockPanel.Dock="Bottom" Header="Sensores sem sala" Margin="0,8,0,0"
+                              Foreground="{StaticResource BrushTx2}">
+                        <ItemsControl x:Name="ListaDeSensoresSemSala" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource BrushTx3}"
+                                               TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+                    <ListBox x:Name="ListaDeAmbientes" BorderThickness="0" Background="Transparent"
+                             ItemContainerStyle="{StaticResource EstiloItemDeSala}"
+                             SelectionChanged="ListaDeAmbientes_SelectionChanged"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Width="11" Height="11" Fill="{Binding Cor}"
+                                             VerticalAlignment="Top" Margin="0,4,10,0"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource BrushTx}" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Detalhe}" FontSize="11"
+                                                   Foreground="{StaticResource BrushTx2}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding Casamento}" FontSize="10.5"
+                                                   Foreground="{StaticResource BrushTx3}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Sala selecionada: três visualizações -->
+            <Border Grid.Column="2" Style="{StaticResource EstiloCartao}" Padding="18,14">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock x:Name="TextoTituloDaSala" Text="Selecione uma sala"
+                                   FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource BrushTx}"/>
+                        <TextBlock x:Name="TextoResumoDaSala" Foreground="{StaticResource BrushTx2}"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="A lista à esquerda mostra as salas reconhecidas nas planilhas. Clique numa sala aqui, ou num Room no modelo."/>
+                    </StackPanel>
+
+                    <TabControl x:Name="Abas" BorderThickness="0" Background="Transparent" Padding="0,12,0,0"
+                                ItemContainerStyle="{StaticResource EstiloAba}">
+                        <TabItem Header="Ao vivo">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <WrapPanel x:Name="PainelDeCartoes" Margin="0,4,0,0"/>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <TabItem Header="Série temporal">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,4,0,10">
+                                    <TextBlock Text="Janela:" VerticalAlignment="Center"
+                                               Foreground="{StaticResource BrushTx2}" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="SeletorDeJanela" Width="170"
+                                              SelectionChanged="SeletorDeJanela_SelectionChanged"/>
+                                </StackPanel>
+                                <ContentControl x:Name="PainelDoGrafico"/>
+                            </DockPanel>
+                        </TabItem>
+
+                        <TabItem Header="No modelo">
+                            <StackPanel Margin="0,4,0,0">
+                                <TextBlock x:Name="TextoCasamento" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BrushTx2}" Margin="0,0,0,14"
+                                           Text="Nenhum ciclo concluído ainda."/>
+                                <WrapPanel>
+                                    <Button x:Name="BotaoPintar" Content="Pintar salas na vista ativa"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoPintar_Click"/>
+                                    <Button x:Name="BotaoLimpar" Content="Limpar pintura"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoLimpar_Click"/>
+                                    <Button x:Name="BotaoVista3D" Content="Gerar vista 3D de conforto"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoVista3D_Click"/>
+                                    <Button x:Name="BotaoMostrar" Content="Mostrar sala selecionada no modelo"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoMostrar_Click"/>
+                                </WrapPanel>
+                                <TextBlock Text="LEGENDA" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,10,0,8"/>
+                                <StackPanel x:Name="PainelDeLegenda" Orientation="Horizontal"/>
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTx3}" FontSize="11" Margin="0,14,0,0"
+                                           Text="A cor é da ÚLTIMA leitura, na janela escolhida em &quot;Série temporal&quot;. A pintura é uma sobreposição gráfica da vista — não altera o modelo e sai com &quot;Limpar pintura&quot;. Se a vista ativa usar um template que controle as sobreposições, use &quot;Gerar vista 3D&quot;."/>
+                            </StackPanel>
+                        </TabItem>
+                    </TabControl>
+                </DockPanel>
+            </Border>
+
+            <!-- Planilhas -->
+            <Border Grid.Column="4" Style="{StaticResource EstiloCartao}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="PLANILHAS" Style="{StaticResource EstiloTituloDeSecao}"/>
+                    <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,-8">
+                        <Button x:Name="BotaoAdicionarPlanilha" Content="Adicionar…"
+                                Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoAdicionarPlanilha_Click"/>
+                        <Button x:Name="BotaoRemoverPlanilha" Content="Remover"
+                                Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoRemoverPlanilha_Click"/>
+                    </WrapPanel>
+                    <ListBox x:Name="ListaDePlanilhas" BorderThickness="0" Background="Transparent"
+                             ItemContainerStyle="{StaticResource EstiloItemDeSala}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding Ativa, Mode=TwoWay}" Content="{Binding Nome}"
+                                          ToolTip="{Binding Url}" Foreground="{StaticResource BrushTx}"
+                                          Checked="PlanilhaAtivaAlterada" Unchecked="PlanilhaAtivaAlterada"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- ── Avisos ──────────────────────────────────────────────────── -->
+        <Expander Grid.Row="2" x:Name="ExpansorDeAvisos" Header="Avisos do último ciclo"
+                  Margin="0,14,0,0" Foreground="{StaticResource BrushTx2}">
+            <TextBox x:Name="TextoAvisos" IsReadOnly="True" TextWrapping="Wrap" Height="120"
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"
+                     Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBd}"
+                     Padding="8" Margin="0,6,0,0"/>
+        </Expander>
+    </Grid>
+</Window>

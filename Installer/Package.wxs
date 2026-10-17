@@ -2,10 +2,10 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
-  <Package Name="Plugin CAISM para Revit 2026"
-           Manufacturer="LABEEST / FEC-FAU UNICAMP"
+  <Package Name="MackTwin para Revit 2026"
+           Manufacturer="Mackenzie / Limiar"
            Version="1.0.0.0"
-           UpgradeCode="4e1f0490-ff94-4947-92ab-f5f64cc0aabd"
+           UpgradeCode="c87cde6e-5674-4d79-a470-708459d4f928"
            Scope="perMachine"
            Compressed="yes">
 
@@ -19,7 +19,7 @@
          anteriores, e os arquivos do primeiro continuam valendo. Foi exatamente o que
          aconteceu — quatro cópias 1.0.0.0 registradas e o DLL antigo em disco. -->
     <MajorUpgrade AllowSameVersionUpgrades="yes"
-                  DowngradeErrorMessage="Uma versão mais recente do Plugin CAISM já está instalada." />
+                  DowngradeErrorMessage="Uma versão mais recente do MackTwin já está instalada." />
 
     <MediaTemplate EmbedCab="yes" />
 
@@ -31,26 +31,26 @@
         <Directory Id="DirRevit" Name="Revit">
           <Directory Id="DirAddins" Name="Addins">
             <Directory Id="DirAddins2026" Name="2026">
-              <Directory Id="INSTALLFOLDER" Name="PluginCAISM" />
+              <Directory Id="INSTALLFOLDER" Name="MackTwin" />
             </Directory>
           </Directory>
         </Directory>
       </Directory>
     </StandardDirectory>
 
-    <!-- O manifesto fica em 2026\, e os binários em 2026\PluginCAISM\. -->
+    <!-- O manifesto fica em 2026\, e os binários em 2026\MackTwin\. -->
     <ComponentGroup Id="ManifestoAddin" Directory="DirAddins2026">
       <Component>
-        <File Source="PluginCAISM.addin" />
+        <File Source="MackTwin.addin" />
       </Component>
     </ComponentGroup>
 
-    <!-- Empacota a pasta de saída inteira: PluginCAISM.dll, EPPlus, LiveCharts,
-         Microsoft.Extensions.*, satélites de idioma e Assets\hitpoint.rfa.
-         Não é preciso listar DLL por DLL — acrescentar um PackageReference no
-         csproj passa a ser refletido aqui sem nenhuma edição. -->
-    <Files Include="$(var.PluginCAISM.TargetDir)\**" Directory="INSTALLFOLDER">
-      <Exclude Files="$(var.PluginCAISM.TargetDir)\**\*.pdb" />
+    <!-- Empacota a pasta de saída inteira: MackTwin.dll, LiveCharts, satélites de
+         idioma e Assets\icone-macktwin.png. Não é preciso listar DLL por DLL —
+         acrescentar um PackageReference no csproj passa a ser refletido aqui sem
+         nenhuma edição. -->
+    <Files Include="$(var.MackTwin.TargetDir)\**" Directory="INSTALLFOLDER">
+      <Exclude Files="$(var.MackTwin.TargetDir)\**\*.pdb" />
     </Files>
 
     <!-- Fluxo de telas próprio: boas-vindas → confirmação → conclusão.
@@ -62,7 +62,7 @@
          O preço de não usar um conjunto pronto é ter de declarar os diálogos comuns
          e a navegação entre eles, que é o que vem abaixo. Os diálogos em si continuam
          vindo do WixUI_Common, referenciado ao final. -->
-    <UI Id="UiCaismSemEula">
+    <UI Id="UiMackTwinSemEula">
       <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
       <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
       <TextStyle Id="WixUI_Font_Title"  FaceName="Tahoma" Size="9" Bold="yes" />

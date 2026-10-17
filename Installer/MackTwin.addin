@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifesto que o Revit lê na inicialização para carregar o plugin.
+
+  Este arquivo é insumo EXCLUSIVO do instalador: o fluxo de desenvolvimento
+  continua usando o AddinManager, que dispensa manifesto. Ele é instalado em
+  %ProgramData%\Autodesk\Revit\Addins\2026\, e o caminho em <Assembly> é
+  relativo a essa pasta — por isso o prefixo "MackTwin\".
+
+  O AddInId identifica o addin para o Revit e NÃO deve ser regenerado entre
+  versões: trocá-lo faz o Revit tratar a nova versão como outro plugin. O valor
+  abaixo é próprio do MackTwin (distinto do projeto de origem), de modo que os
+  dois plug-ins podem coexistir na mesma instalação do Revit.
+
+  Há só uma entrada, do tipo Application: é ela que constrói a aba e o botão
+  (ver AplicacaoRibbonMackTwin). Uma entrada Type="Command" adicional não cria
+  interface nenhuma — apenas duplicaria o acesso em Add-Ins > External Tools,
+  já que o botão da ribbon aponta direto para ComandoPrincipalMackTwin.
+-->
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Plug-in MackTwin</Name>
+    <Assembly>MackTwin\MackTwin.dll</Assembly>
+    <AddInId>48f946c8-09bb-4558-bc0b-c75bf838240e</AddInId>
+    <FullClassName>MackTwin.AplicacaoRibbonMackTwin</FullClassName>
+    <VendorId>MACK</VendorId>
+    <VendorDescription>Mackenzie / Limiar</VendorDescription>
+  </AddIn>
+</RevitAddIns>

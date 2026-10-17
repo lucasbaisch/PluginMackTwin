@@ -1,5 +1,0 @@
-# Build artefacts of the offline test bench.
-bin/
-obj/
-Generated/
-*.csv
