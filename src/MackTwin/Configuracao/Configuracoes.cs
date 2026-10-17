@@ -239,6 +239,12 @@ namespace MackTwin.Configuracao
 
         /// <summary>Transparência da superfície pintada (0 = opaca, 100 = invisível).</summary>
         public const int TransparenciaDaSuperficie = 0;
+
+        /// <summary>
+        /// Transparência (0–100) aplicada a paredes, pisos, portas e janelas na vista 3D de
+        /// conforto, para que os volumes coloridos das salas fiquem visíveis de fora.
+        /// </summary>
+        public const int TransparenciaDoEnvoltorio = 70;
     }
 
     // ── Ribbon ──────────────────────────────────────────────────────────

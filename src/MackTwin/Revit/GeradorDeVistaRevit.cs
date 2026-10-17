@@ -53,11 +53,81 @@ namespace MackTwin.Revit
                 transacao.Start();
                 vista = CriarVista3D(tipoDaVista, MontarNomeDaVista());
                 PintorDeAmbientes.ExibirCategoriaDeRooms(_documento, vista);
+                PrepararParaConforto(vista);
                 transacao.Commit();
             }
 
             pintados = PintorDeAmbientes.Pintar(_documento, vista, conjunto, classificar);
             return vista;
+        }
+
+        // ── Configuração gráfica da vista de conforto ────────────────────
+
+        /// <summary>
+        /// Deixa a vista pronta para mostrar os Rooms coloridos sem que o usuário mexa em nada.
+        /// </summary>
+        /// <remarks>
+        /// Três coisas escondem a cor numa 3D recém-criada: o estilo <i>Aramado</i> não desenha
+        /// padrões de superfície (é neles que a cor vai); telhados e forros cobrem as salas por
+        /// cima; e paredes e pisos opacos as cercam. Logo: estilo sombreado com arestas, telhados
+        /// e forros ocultos, e o envoltório (paredes, pisos, portas, janelas, painéis de cortina)
+        /// semitransparente, para que os volumes das salas apareçam através dele.
+        ///
+        /// Tudo por categoria e só nesta vista: nada muda no modelo nem nas outras vistas.
+        /// Precisa de transação ativa.
+        /// </remarks>
+        private static void PrepararParaConforto(View3D vista)
+        {
+            vista.DisplayStyle = DisplayStyle.ShadingWithEdges;
+            vista.DetailLevel = ViewDetailLevel.Medium;
+
+            foreach (var categoria in new[] { BuiltInCategory.OST_Roofs, BuiltInCategory.OST_Ceilings })
+                TentarOcultar(vista, new ElementId(categoria));
+
+            var fantasma = new OverrideGraphicSettings();
+            fantasma.SetSurfaceTransparency(ConfiguracaoDePinturaDeAmbientes.TransparenciaDoEnvoltorio);
+
+            var envoltorio = new[]
+            {
+                BuiltInCategory.OST_Walls,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Doors,
+                BuiltInCategory.OST_Windows,
+                BuiltInCategory.OST_CurtainWallPanels,
+                BuiltInCategory.OST_CurtainWallMullions,
+            };
+
+            foreach (var categoria in envoltorio)
+                TentarSobrepor(vista, new ElementId(categoria), fantasma);
+        }
+
+        private static void TentarOcultar(View vista, ElementId idDaCategoria)
+        {
+            try
+            {
+                if (vista.CanCategoryBeHidden(idDaCategoria))
+                    vista.SetCategoryHidden(idDaCategoria, true);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                // Categoria inexistente ou não controlável nesta vista.
+            }
+        }
+
+        private static void TentarSobrepor(View vista, ElementId idDaCategoria, OverrideGraphicSettings sobreposicao)
+        {
+            try
+            {
+                vista.SetCategoryOverrides(idDaCategoria, sobreposicao);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                // Categoria inexistente ou sem sobreposição possível nesta vista.
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                // Sobreposições controladas por template (não é o caso da vista gerada).
+            }
         }
 
         // ── Nome da vista ────────────────────────────────────────────────
