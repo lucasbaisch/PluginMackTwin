@@ -571,6 +571,37 @@ namespace MackTwin.Interface
             });
         }
 
+        private void BotaoDiagnostico_Click(object sender, RoutedEventArgs evento)
+        {
+            var conjunto = _conjunto;
+
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                {
+                    Informar("Abra um modelo para diagnosticar.");
+                    return;
+                }
+
+                string relatorio = DiagnosticoDoModelo.Gerar(uiDocumento, conjunto);
+
+                AcrescentarAviso(relatorio);
+                ExpansorDeAvisos.IsExpanded = true;
+
+                try
+                {
+                    Clipboard.SetText(relatorio);
+                    TextoStatus.Text = "Diagnóstico registrado nos avisos e copiado para a área de transferência.";
+                }
+                catch (Exception)
+                {
+                    TextoStatus.Text = "Diagnóstico registrado nos avisos.";
+                }
+            });
+        }
+
         // ── Planilhas ────────────────────────────────────────────────────
 
         private void ExibirPlanilhas()

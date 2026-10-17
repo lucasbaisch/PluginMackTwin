@@ -295,6 +295,9 @@
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoVista3D_Click"/>
                                     <Button x:Name="BotaoMostrar" Content="Mostrar sala selecionada no modelo"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoMostrar_Click"/>
+                                    <Button x:Name="BotaoDiagnostico" Content="Diagnóstico do modelo"
+                                            ToolTip="Lista Rooms, vista ativa, categorias e casamentos nos avisos (e copia para a área de transferência)"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoDiagnostico_Click"/>
                                 </WrapPanel>
                                 <TextBlock Text="LEGENDA" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,10,0,8"/>
                                 <StackPanel x:Name="PainelDeLegenda" Orientation="Horizontal"/>
