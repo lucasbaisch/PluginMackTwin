@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Plugin CAISM para Revit 2026"
+           Manufacturer="LABEEST / FEC-FAU UNICAMP"
+           Version="1.0.0.0"
+           UpgradeCode="4e1f0490-ff94-4947-92ab-f5f64cc0aabd"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <!-- Desinstala a versão anterior antes de instalar a nova. Depende de o
+         UpgradeCode acima NUNCA mudar; só o Version sobe a cada release.
+
+         AllowSameVersionUpgrades="yes" existe porque o WiX gera um ProductCode novo
+         a cada build, enquanto o Version acima é fixo. Sem a flag, o MajorUpgrade só
+         substitui versões ESTRITAMENTE menores, de modo que reinstalar sem subir o
+         Version não atualiza nada: o instalador registra mais um produto ao lado dos
+         anteriores, e os arquivos do primeiro continuam valendo. Foi exatamente o que
+         aconteceu — quatro cópias 1.0.0.0 registradas e o DLL antigo em disco. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="Uma versão mais recente do Plugin CAISM já está instalada." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- %ProgramData%\Autodesk\Revit\Addins\2026\ — a pasta que o Revit varre na
+         inicialização. É "all users": vale para qualquer conta da máquina, e por
+         isso a instalação pede elevação. -->
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DirAutodesk" Name="Autodesk">
+        <Directory Id="DirRevit" Name="Revit">
+          <Directory Id="DirAddins" Name="Addins">
+            <Directory Id="DirAddins2026" Name="2026">
+              <Directory Id="INSTALLFOLDER" Name="PluginCAISM" />
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- O manifesto fica em 2026\, e os binários em 2026\PluginCAISM\. -->
+    <ComponentGroup Id="ManifestoAddin" Directory="DirAddins2026">
+      <Component>
+        <File Source="PluginCAISM.addin" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Empacota a pasta de saída inteira: PluginCAISM.dll, EPPlus, LiveCharts,
+         Microsoft.Extensions.*, satélites de idioma e Assets\hitpoint.rfa.
+         Não é preciso listar DLL por DLL — acrescentar um PackageReference no
+         csproj passa a ser refletido aqui sem nenhuma edição. -->
+    <Files Include="$(var.PluginCAISM.TargetDir)\**" Directory="INSTALLFOLDER">
+      <Exclude Files="$(var.PluginCAISM.TargetDir)\**\*.pdb" />
+    </Files>
+
+    <!-- Fluxo de telas próprio: boas-vindas → confirmação → conclusão.
+         Substitui o WixUI_Minimal, cuja primeira tela é a WelcomeEulaDlg — que exibe
+         um contrato de licença e exige aceite. Sem um License.rtf próprio, o WiX
+         preenche essa tela com o texto de exemplo dele, em Lorem Ipsum.
+         Não há licença a aceitar aqui, então a tela sai em vez de ganhar texto.
+
+         O preço de não usar um conjunto pronto é ter de declarar os diálogos comuns
+         e a navegação entre eles, que é o que vem abaixo. Os diálogos em si continuam
+         vindo do WixUI_Common, referenciado ao final. -->
+    <UI Id="UiCaismSemEula">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title"  FaceName="Tahoma" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <!-- Precisa estar AQUI DENTRO, e não como irmão do <UI>: é o WixUI_Common que
+           sequencia ExitDialog, FatalError e UserExit nas tabelas de UI. Fora daqui o
+           build para em ICE20, reclamando que o diálogo de saída não está sequenciado. -->
+      <UIRef Id="WixUI_Common" />
+
+      <!-- Diálogos de sistema: erro, cancelamento, progresso, arquivos em uso. -->
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <!-- Telas do fluxo. -->
+      <DialogRef Id="WelcomeDlg" />
+      <DialogRef Id="VerifyReadyDlg" />
+      <DialogRef Id="MaintenanceWelcomeDlg" />
+      <DialogRef Id="MaintenanceTypeDlg" />
+      <DialogRef Id="ExitDialog" />
+
+      <!-- Não há InstallUISequence aqui de propósito: cada diálogo do WixUI_Common já se
+           sequencia no próprio .wxs. Declarar de novo colide com o símbolo virtual e o
+           build para em WIX7009, pedindo o modificador 'override'. Os DialogRef acima
+           bastam para trazer as telas. -->
+
+      <!-- Encerra o instalador ao clicar em Concluir. Sem isto o botão não faz nada e o
+           build para em ICE17; os conjuntos prontos do WiX declaram o mesmo evento. -->
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+
+      <!-- Instalação nova. -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg"
+               Condition="NOT Installed" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg"
+               Condition="NOT Installed" Order="2" />
+
+      <!-- Reparar / remover, quando o produto já está instalado. -->
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg"
+               Condition="Installed AND PATCH" />
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg"
+               Condition="Installed" Order="1" />
+    </UI>
+
+  </Package>
+</Wix>

@@ -1,0 +1,125 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="EPPlus" Version="4.5.3.3" />
+    <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2026\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2026\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- hitpoint.rfa é embutido no DLL como recurso gerenciado (fallback quando o plugin é
+       carregado via AddinManager e a pasta Assets\ não existe ao lado do DLL em execução)
+       e também copiado para Assets\ na pasta de saída do build (caminho preferencial).
+       O NOME DO ARQUIVO importa: o Revit batiza a família por ele, e é esse o nome que o
+       plugin procura no documento (ver ConfiguracaoDaFamiliaHitpoint.NomeDoArquivoDaFamilia).
+       Renomear este arquivo NÃO atualiza a família nos modelos existentes — cria uma segunda. -->
+
+  <ItemGroup>
+    <!-- Logos institucionais exibidos na tela de instruções -->
+    <EmbeddedResource Include="Assets\hitpoint.rfa">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <!-- Ícone do botão da ribbon. Embutido no DLL E copiado para Assets\ na saída,
+         pelo mesmo motivo do hitpoint.rfa: sob o AddinManager só o DLL vai para %TEMP%,
+         então o caminho em disco não existe e o recurso embutido é o único que resolve.
+         Cópia de "logo caism.png"; é um arquivo separado de propósito, para poder ser
+         redimensionado para 32x32 sem mexer no logo exibido na tela de instruções. -->
+    <EmbeddedResource Include="Assets\icone caism.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <Resource Include="Assets\logo unicamp.png" />
+    <Resource Include="Assets\logo fecfau.png" />
+    <Resource Include="Assets\logo dasmind.png" />
+    <Resource Include="Assets\logo caism.png">
+      <CopyToOutputDirectory></CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\logo labeest.png" />
+  </ItemGroup>
+
+  <!-- ── Implantação no Revit ────────────────────────────────────────────────────────
+       O manifesto PluginCAISM.addin aponta para a pasta abaixo, e NÃO para bin\Debug.
+       A razão é prática: o Revit trava o arquivo que carrega, e enquanto isso era a
+       própria saída do build, toda compilação feita com o Revit aberto morria na etapa
+       de cópia — o binário ficava pronto em obj\ e nunca chegava a bin\.
+
+       Com a separação, compilar com o Revit aberto passa a funcionar sempre: o build
+       termina em sucesso e só a cópia para a pasta de implantação é pulada, com aviso.
+       Continua sendo necessário fechar o Revit para CARREGAR a versão nova — o que não
+       se pode evitar —, mas não mais para compilá-la.
+
+       ContinueOnError="WarnAndContinue" é o que garante isso: uma falha aqui não é falha
+       de build, porque o compilador já entregou o seu produto. -->
+  <PropertyGroup>
+    <PastaDeImplantacaoNoRevit>$(APPDATA)\Autodesk\Revit\Addins\2026\PluginCAISM\</PastaDeImplantacaoNoRevit>
+  </PropertyGroup>
+
+  <Target Name="ImplantarNoRevit" AfterTargets="Build">
+    <ItemGroup>
+      <!-- Tudo o que o build produziu, e não só o DLL do plugin: as dependências
+           (EPPlus, LiveCharts) e os arquivos de configuração do runtime precisam
+           acompanhar, ou o Revit carrega o complemento e ele falha ao abrir a janela. -->
+      <ArquivosImplantaveis Include="$(TargetDir)**\*.*" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(PastaDeImplantacaoNoRevit)" ContinueOnError="WarnAndContinue" />
+
+    <Copy SourceFiles="@(ArquivosImplantaveis)"
+          DestinationFiles="@(ArquivosImplantaveis->'$(PastaDeImplantacaoNoRevit)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue" />
+
+    <Message Importance="high"
+             Text="Implantação do plug-in: $(PastaDeImplantacaoNoRevit) (se houver aviso de cópia acima, o Revit está aberto e a versão nova só será carregada depois de fechá-lo)" />
+  </Target>
+
+  <!-- ── Geração do instalador MSI ───────────────────────────────────────────────────
+       O Visual Studio não carrega projetos .wixproj sem a extensão HeatWave (FireGiant):
+       acrescentar Installer\Installer.wixproj ao .slnx não resolve, porque o VS ignora o
+       projeto em silêncio, sem sequer marcar erro. Chamar o MSBuild por fora, como um
+       processo próprio, contorna isso — o `dotnet build` resolve o WiX via NuGet e não
+       depende de extensão nenhuma.
+
+       Só roda em Release, para não pagar o empacotamento (~8 s) no ciclo de
+       desenvolvimento com o AddinManager, que compila em Debug.
+
+       BuildProjectReferences=false é o que impede a recursão: o Installer.wixproj
+       referencia ESTE projeto, e sem a flag o build de dentro recompilaria o plug-in —
+       que dispararia este alvo outra vez. A flag também evita que os dois builds
+       disputem obj\ e bin\ ao mesmo tempo. GerandoInstalador é uma segunda trava, caso
+       alguém invoque o wixproj diretamente. -->
+  <Target Name="GerarInstaladorMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(GerandoInstalador)' != 'true'">
+
+    <PropertyGroup>
+      <ProjetoDoInstalador>$(MSBuildThisFileDirectory)..\Installer\Installer.wixproj</ProjetoDoInstalador>
+      <MsiGerado>$(MSBuildThisFileDirectory)..\Installer\bin\$(Configuration)\PluginCAISM-Setup.msi</MsiGerado>
+    </PropertyGroup>
+
+    <Message Importance="high" Text="Empacotando o instalador MSI..." />
+
+    <Exec Command="dotnet build &quot;$(ProjetoDoInstalador)&quot; -c $(Configuration) -p:GerandoInstalador=true -p:BuildProjectReferences=false"
+          WorkingDirectory="$(MSBuildThisFileDirectory).." />
+
+    <Message Importance="high" Text="Instalador: $(MsiGerado)" />
+  </Target>
+
+</Project>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifesto que o Revit lê na inicialização para carregar o plugin.
+
+  Este arquivo é insumo EXCLUSIVO do instalador: o fluxo de desenvolvimento
+  continua usando o AddinManager, que dispensa manifesto. Ele é instalado em
+  %ProgramData%\Autodesk\Revit\Addins\2026\, e o caminho em <Assembly> é
+  relativo a essa pasta — por isso o prefixo "PluginCAISM\".
+
+  Os ClientId identificam os addins para o Revit e NÃO devem ser regenerados
+  entre versões: trocá-los faz o Revit tratar a nova versão como outro plugin.
+
+  Há só uma entrada, do tipo Application: é ela que constrói a aba e o botão
+  (ver AplicacaoRibbonCAISM). Uma entrada Type="Command" adicional não cria
+  interface nenhuma — apenas duplicaria o acesso em Add-Ins > External Tools,
+  já que o botão da ribbon aponta direto para ComandoPrincipalCAISM.
+-->
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Plugin CAISM</Name>
+    <Assembly>PluginCAISM\PluginCAISM.dll</Assembly>
+    <AddInId>ad8c45d1-8dd5-4b70-ab18-ebe8dcfe9b33</AddInId>
+    <FullClassName>PluginCAISM.AplicacaoRibbonCAISM</FullClassName>
+    <VendorId>CAISM</VendorId>
+    <VendorDescription>LABEEST / FEC-FAU UNICAMP</VendorDescription>
+  </AddIn>
+</RevitAddIns>
