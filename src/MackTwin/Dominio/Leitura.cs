@@ -6,10 +6,9 @@ namespace MackTwin.Dominio
     /// Uma linha da planilha: o que um sensor mediu num instante.
     /// </summary>
     /// <remarks>
-    /// Medições ausentes ou ilegíveis chegam como <see cref="double.NaN"/>, e não como null: é a
-    /// convenção que o LiveCharts entende como lacuna na linha, e evita o tipo anulável que a
-    /// versão 0.9.7 da biblioteca não sabe plotar. O carimbo não tem fuso — é a hora local do
-    /// dispositivo, e é assim que se exibe.
+    /// Medições ausentes ou ilegíveis chegam como <see cref="double.NaN"/>, e não como null: o
+    /// gráfico interrompe a linha na lacuna, e as estatísticas simplesmente ignoram o valor.
+    /// O carimbo não tem fuso — é a hora local do dispositivo, e é assim que se exibe.
     /// </remarks>
     public sealed class Leitura
     {

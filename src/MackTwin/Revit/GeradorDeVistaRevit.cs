@@ -52,7 +52,7 @@ namespace MackTwin.Revit
             {
                 transacao.Start();
                 vista = CriarVista3D(tipoDaVista, MontarNomeDaVista());
-                PintorDeAmbientes.ExibirCategoriaDeRooms(vista);
+                PintorDeAmbientes.ExibirCategoriaDeRooms(_documento, vista);
                 transacao.Commit();
             }
 

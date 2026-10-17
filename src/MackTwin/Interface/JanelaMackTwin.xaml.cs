@@ -38,6 +38,11 @@ namespace MackTwin.Interface
     /// <b>A janela de tempo é uma só</b> para as três visualizações: a cor da lista, a
     /// classificação do cabeçalho, o gráfico e a pintura no modelo usam o mesmo resumo,
     /// recalculado quando a janela muda — sem baixar nada de novo.
+    ///
+    /// <b>Rede de segurança.</b> Uma exceção não tratada na thread de interface derruba o Revit
+    /// inteiro — aconteceu com o gráfico. <see cref="DispatcherFalhou"/> intercepta as que vêm
+    /// do MackTwin, registra nos avisos e marca como tratadas; as do próprio Revit seguem com o
+    /// Revit.
     /// </remarks>
     public partial class JanelaMackTwin : Window
     {
@@ -95,6 +100,7 @@ namespace MackTwin.Interface
 
             _despachante.Falhou += DespachanteFalhou;
             _uiApp.SelectionChanged += SelecaoNoRevitAlterada;
+            Dispatcher.UnhandledException += DispatcherFalhou;
 
             Loaded += JanelaCarregada;
             Closed += JanelaFechada;
@@ -112,6 +118,7 @@ namespace MackTwin.Interface
             _cancelamento?.Cancel();
             _uiApp.SelectionChanged -= SelecaoNoRevitAlterada;
             _despachante.Falhou -= DespachanteFalhou;
+            Dispatcher.UnhandledException -= DispatcherFalhou;
         }
 
         // ── Ciclo de atualização ─────────────────────────────────────────
@@ -290,9 +297,21 @@ namespace MackTwin.Interface
                 PainelDeCartoes.Children.Add(new CartaoDeSensor(sensor));
 
             // (b) série temporal — todas as leituras da sala dentro da janela
-            var todas = linha.Ambiente.Leituras.ToList();
-            var naJanela = CalculadorDeResumoDoAmbiente.FiltrarJanela(todas, linha.Ambiente.UltimaLeitura, JanelaSelecionada);
-            PainelDoGrafico.Content = new ControleGraficoDeSerieTemporal(naJanela);
+            try
+            {
+                var todas = linha.Ambiente.Leituras.ToList();
+                var naJanela = CalculadorDeResumoDoAmbiente.FiltrarJanela(todas, linha.Ambiente.UltimaLeitura, JanelaSelecionada);
+                PainelDoGrafico.Content = new ControleGraficoDeSerieTemporal(naJanela);
+            }
+            catch (Exception excecao)
+            {
+                PainelDoGrafico.Content = new TextBlock
+                {
+                    Text = "Não foi possível montar o gráfico: " + excecao.Message,
+                    TextWrapping = TextWrapping.Wrap,
+                };
+                AcrescentarAviso("Gráfico: " + excecao.Message);
+            }
 
             // (c) no modelo — os botões da aba usam a seleção corrente; nada a montar aqui.
         }
@@ -406,6 +425,16 @@ namespace MackTwin.Interface
                 return;
             }
 
+            int casados = conjunto.Ambientes.Count(ambiente => ambiente.CasadoComOModelo);
+
+            if (casados == 0)
+            {
+                Informar("Nenhuma sala das planilhas casou com um Room do modelo. Numere o Room com o código " +
+                         "da sala (ex.: LAB001 para o sensor MMCCTLAB001-001), clique em \"Atualizar agora\" e tente de novo.");
+                Abas.SelectedIndex = 2;
+                return;
+            }
+
             TimeSpan? janela = JanelaSelecionada;
 
             _despachante.Executar(app =>
@@ -427,10 +456,11 @@ namespace MackTwin.Interface
                 }
 
                 int pintados = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, ambiente => Classificar(ambiente, janela));
+                uiDocumento.RefreshActiveView();
 
                 string observacao = vista.ViewTemplateId != DB.ElementId.InvalidElementId
-                    ? " A vista usa template: se a cor não aparecer, ele controla as sobreposições — use \"Gerar vista 3D\"."
-                    : string.Empty;
+                    ? " A vista usa template: se a cor não aparecer, ele controla a visibilidade ou as sobreposições — use \"Gerar vista 3D\"."
+                    : " Na planta a cor aparece pelo preenchimento interno do Room (ligado automaticamente em Visibilidade/Gráficos › Ambientes).";
 
                 Informar($"{pintados} sala(s) pintada(s) em \"{vista.Name}\".{observacao}");
             });
@@ -470,6 +500,7 @@ namespace MackTwin.Interface
                 }
 
                 int limpos = PintorDeAmbientes.Limpar(uiDocumento.Document, vista, ids);
+                uiDocumento.RefreshActiveView();
                 Informar($"Pintura removida de {limpos} sala(s) em \"{vista.Name}\".");
             });
         }
@@ -499,6 +530,7 @@ namespace MackTwin.Interface
                 var gerador = new GeradorDeVistaRevit(uiDocumento.Document);
                 var vista = gerador.GerarVistaDeConforto(conjunto, ambiente => Classificar(ambiente, janela), out int pintados);
                 uiDocumento.ActiveView = vista;
+                uiDocumento.RefreshActiveView();
 
                 Informar($"Vista \"{vista.Name}\" criada com {pintados} sala(s) pintada(s).");
             });
@@ -663,6 +695,31 @@ namespace MackTwin.Interface
         private void DespachanteFalhou(Exception excecao)
         {
             Informar("Falha no Revit: " + excecao.Message);
+        }
+
+        /// <summary>
+        /// Intercepta exceções não tratadas da thread de interface que tenham origem no MackTwin,
+        /// para que um erro do painel não derrube o Revit. As demais seguem para o Revit.
+        /// </summary>
+        private void DispatcherFalhou(object sender, DispatcherUnhandledExceptionEventArgs evento)
+        {
+            string rastro = evento.Exception.ToString();
+
+            if (!rastro.Contains("MackTwin", StringComparison.Ordinal))
+                return;
+
+            evento.Handled = true;
+
+            try
+            {
+                AcrescentarAviso("Erro interno do painel (capturado, o Revit segue): " + evento.Exception.Message);
+                ExpansorDeAvisos.IsExpanded = true;
+                TextoStatus.Text = "Erro interno do painel — veja os avisos.";
+            }
+            catch (Exception)
+            {
+                // Se nem o aviso pôde ser exibido, o importante já foi feito: o Revit não cai.
+            }
         }
 
         private void ExibirOcupado(bool ocupado)

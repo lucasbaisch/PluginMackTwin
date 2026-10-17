@@ -11,11 +11,10 @@
   </PropertyGroup>
 
 
-  <ItemGroup>
-    <!-- LiveCharts desenha a série temporal das leituras. O EPPlus saiu junto com a leitura
-         de planilhas Excel do modelo anterior: a fonte de dados agora é CSV (planilha Google). -->
-    <PackageReference Include="LiveCharts.Wpf" Version="0.9.7" />
-  </ItemGroup>
+  <!-- Sem pacotes NuGet: a série temporal é desenhada com WPF puro (Canvas/Polyline). O
+       LiveCharts 0.9.7 saiu depois de derrubar o Revit — uma exceção dele dentro do layout do
+       WPF não é capturável e mata o processo hospedeiro. O EPPlus saiu junto com a leitura de
+       planilhas Excel do modelo anterior: a fonte de dados agora é CSV (planilha Google). -->
 
   <ItemGroup>
     <Reference Include="RevitAPI">

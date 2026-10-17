@@ -14,12 +14,15 @@ namespace MackTwin.Revit
     /// Usa <see cref="OverrideGraphicSettings"/> por elemento, e não cor de material nem esquema
     /// de cores: a pintura é da VISTA, não do modelo, e some com <see cref="Limpar"/> sem deixar
     /// rastro no projeto. Preenchimento sólido de superfície e de corte, para que funcione tanto
-    /// na planta (onde o Room aparece pelo "Interior Fill") quanto na 3D (onde o Revit 2023+
-    /// desenha Rooms como volumes).
+    /// na planta quanto na 3D.
     ///
-    /// Uma vista com template que controle "V/G Overrides Model" recusa as sobreposições; é
-    /// o caso que a mensagem de erro explica e que "Gerar vista 3D" contorna, porque a vista
-    /// gerada nasce sem template.
+    /// <b>Onde a cor aparece.</b> Na planta, o Room só é visível pela subcategoria
+    /// "Preenchimento interno" (Interior Fill), que a maioria dos templates deixa DESLIGADA —
+    /// e então a sobreposição é aplicada mas nada muda na tela. Por isso
+    /// <see cref="ExibirCategoriaDeRooms"/> liga a categoria Rooms E todas as suas subcategorias
+    /// na vista antes de pintar. Uma vista com template que controle visibilidade ou
+    /// sobreposições recusa essas mudanças; é o caso que "Gerar vista 3D" contorna, porque a
+    /// vista gerada nasce sem template.
     ///
     /// Deve rodar dentro de um contexto válido da API.
     /// </remarks>
@@ -57,7 +60,7 @@ namespace MackTwin.Revit
             using var transacao = new Transaction(documento, ConfiguracaoDePinturaDeAmbientes.NomeDaTransacaoDePintura);
             transacao.Start();
 
-            ExibirCategoriaDeRooms(vista);
+            ExibirCategoriaDeRooms(documento, vista);
 
             foreach (var ambiente in conjunto.Ambientes)
             {
@@ -102,21 +105,48 @@ namespace MackTwin.Revit
         }
 
         /// <summary>
-        /// Garante que a categoria Rooms esteja visível na vista. Precisa de transação ativa.
+        /// Liga, na vista, a categoria Rooms e todas as suas subcategorias (inclusive o
+        /// "Preenchimento interno", por onde a cor aparece na planta). Precisa de transação ativa.
+        /// Devolve quantas categorias foram de fato ligadas.
         /// </summary>
-        public static void ExibirCategoriaDeRooms(View vista)
+        public static int ExibirCategoriaDeRooms(Document documento, View vista)
         {
-            var categoria = new ElementId(BuiltInCategory.OST_Rooms);
+            var categoria = Category.GetCategory(documento, BuiltInCategory.OST_Rooms);
 
+            if (categoria == null)
+                return 0;
+
+            int ligadas = TentarExibir(vista, categoria.Id) ? 1 : 0;
+
+            foreach (Category subcategoria in categoria.SubCategories)
+            {
+                if (TentarExibir(vista, subcategoria.Id))
+                    ligadas++;
+            }
+
+            return ligadas;
+        }
+
+        private static bool TentarExibir(View vista, ElementId idDaCategoria)
+        {
             try
             {
-                if (vista.CanCategoryBeHidden(categoria))
-                    vista.SetCategoryHidden(categoria, false);
+                if (vista.CanCategoryBeHidden(idDaCategoria) && vista.GetCategoryHidden(idDaCategoria))
+                {
+                    vista.SetCategoryHidden(idDaCategoria, false);
+                    return true;
+                }
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException)
             {
-                // A categoria não é controlável nesta vista (template, ou tipo de vista sem Rooms).
+                // Categoria não controlável nesta vista.
             }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                // Visibilidade controlada por template de vista.
+            }
+
+            return false;
         }
 
         /// <summary>Cor do Revit a partir do hexadecimal <c>#RRGGBB</c> da configuração.</summary>
