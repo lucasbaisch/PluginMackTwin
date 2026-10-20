@@ -23,7 +23,7 @@ namespace MackTwin.Interface
         public JanelaDeCadastroDeSala()
         {
             InitializeComponent();
-            Loaded += (remetente, evento) => CaixaCodigo.Focus();
+            Loaded += (remetente, evento) => CaixaNome.Focus();
         }
 
         private void BotaoSalvar_Click(object sender, RoutedEventArgs evento)

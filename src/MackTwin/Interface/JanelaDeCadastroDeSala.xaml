@@ -37,12 +37,13 @@
                            Text="O código é a chave da sala: deve ser o mesmo do Número do Room no modelo e do trecho de sala do HOSTNAME dos sensores (MMCCT&#8203;LAB002&#8203;-001 → LAB002). Maiúsculas, espaços e hífens não importam."/>
             </Border>
 
-            <TextBlock Grid.Row="1" Text="Código da sala (ex.: LAB002)" Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4"/>
-            <TextBox Grid.Row="2" x:Name="CaixaCodigo" Style="{StaticResource EstiloCaixaDeTexto}" Margin="0,0,0,12"
-                     CharacterCasing="Upper"/>
+            <TextBlock Grid.Row="1" Text="Nome do Ambiente" Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4"/>
+            <TextBox Grid.Row="2" x:Name="CaixaNome" Style="{StaticResource EstiloCaixaDeTexto}" Margin="0,0,0,12"/>
 
-            <TextBlock Grid.Row="3" Text="Nome (opcional — ex.: Laboratório de Física)" Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4"/>
-            <TextBox Grid.Row="4" x:Name="CaixaNome" Style="{StaticResource EstiloCaixaDeTexto}" Margin="0,0,0,12"/>
+            <TextBlock Grid.Row="3" Text="Código do Ambiente (ex.: BR_UPM-CPS-EDU_T00-FABLAB-MAMB-TU-SHT40_2026)"
+                       Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4" TextWrapping="Wrap"/>
+            <TextBox Grid.Row="4" x:Name="CaixaCodigo" Style="{StaticResource EstiloCaixaDeTexto}" Margin="0,0,0,12"
+                     CharacterCasing="Upper"/>
 
             <TextBlock Grid.Row="5" x:Name="TextoResultado" Foreground="{StaticResource BrushBrandDark}" TextWrapping="Wrap"
                        VerticalAlignment="Top"/>
