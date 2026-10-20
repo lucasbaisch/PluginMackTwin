@@ -223,26 +223,6 @@
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoVista3D_Click"/>
                                 </WrapPanel>
 
-                                <TextBlock Text="CORES TEMPORÁRIAS · SEM PARÂMETROS" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
-                                <WrapPanel>
-                                    <Button x:Name="BotaoCoresTemporarias" Content="Colorir salas temporariamente"
-                                            ToolTip="Cria um sólido com a forma de cada sala, colorido pelo estado atual só nesta vista; nada é gravado nos Rooms. As cores acompanham cada atualização e somem ao fechar o plug-in"
-                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoCoresTemporarias_Click"/>
-                                    <Button x:Name="BotaoRemoverTemporarias" Content="Remover cores temporárias"
-                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoRemoverTemporarias_Click"/>
-                                </WrapPanel>
-
-                                <TextBlock Text="MAPA DE CALOR NO PISO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
-                                <WrapPanel>
-                                    <Button x:Name="BotaoMapaTemperatura" Content="Temperatura (°C)"
-                                            ToolTip="Lâmina colorida sobre o piso de cada sala com a última temperatura, com legenda em gradiente (AVF). Constante por sala"
-                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoMapaTemperatura_Click"/>
-                                    <Button x:Name="BotaoMapaUmidade" Content="Umidade (%)"
-                                            ToolTip="Lâmina colorida sobre o piso de cada sala com a última umidade relativa, com legenda em gradiente (AVF). Constante por sala"
-                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoMapaUmidade_Click"/>
-                                    <Button x:Name="BotaoRemoverMapa" Content="Remover mapa"
-                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoRemoverMapa_Click"/>
-                                </WrapPanel>
 
                                 <TextBlock Text="SALA SELECIONADA E APOIO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
                                 <WrapPanel>
@@ -252,34 +232,6 @@
                                             ToolTip="Lista Rooms, vista ativa, categorias e casamentos nos avisos (e copia para a área de transferência)"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoDiagnostico_Click"/>
                                 </WrapPanel>
-
-                                <TextBlock Text="LINHA DO TEMPO · ÚLTIMAS 24 H" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,6"/>
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Button Grid.Column="0" x:Name="BotaoReproduzir" Content="&#x25B6;  Reproduzir" MinWidth="112"
-                                            ToolTip="Reproduz as últimas 24 h na vista ativa, meio segundo por hora, e para no agora"
-                                            Style="{StaticResource EstiloBotaoSecundario}" VerticalAlignment="Center" Margin="0,0,12,0"
-                                            Click="BotaoReproduzir_Click"/>
-                                    <Slider Grid.Column="1" x:Name="DeslizadorDoTempo" Minimum="0" Maximum="24" Value="24"
-                                            TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="BottomRight"
-                                            MaxWidth="520" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                            Foreground="{StaticResource BrushBrand}"
-                                            ToolTip="Arraste para ver, na vista ativa, o estado que as salas tinham a cada hora; a última posição é o agora"
-                                            ValueChanged="DeslizadorDoTempo_ValueChanged"/>
-                                    <TextBlock Grid.Column="2" x:Name="TextoDoInstante" Text="Agora" MinWidth="110"
-                                               FontWeight="SemiBold" Foreground="{StaticResource BrushTx}"
-                                               VerticalAlignment="Center" Margin="14,0,10,0"/>
-                                    <Button Grid.Column="3" x:Name="BotaoVoltarAoAgora" Content="Voltar ao agora"
-                                            Style="{StaticResource EstiloBotaoPrincipalCompacto}" VerticalAlignment="Center"
-                                            Click="BotaoVoltarAoAgora_Click"/>
-                                </Grid>
-                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTx3}" FontSize="10.5" Margin="0,0,0,8"
-                                           Text="Arraste ou reproduza: a vista ativa é repintada com o estado daquela hora (leitura com até 1 h de idade). A lista e os cartões continuam ao vivo. Clicar num Room no modelo seleciona a sala aqui."/>
 
                                 <TextBlock Text="EXPORTAÇÃO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
                                 <WrapPanel>

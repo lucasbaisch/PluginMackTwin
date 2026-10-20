@@ -65,7 +65,7 @@ namespace MackTwin.Revit
             using (var transacao = new Transaction(_documento, ConfiguracaoDePinturaDeAmbientes.NomeDaTransacaoDeVista))
             {
                 transacao.Start();
-                volumesAtivados = GarantirCalculoDeVolumes(_documento);
+                volumesAtivados = GarantirCalculoDeVolumes();
                 vista = CriarVista3D(tipoDaVista, MontarNomeDaVista());
                 PintorDeAmbientes.ExibirCategoriaDeRooms(_documento, vista);
                 PrepararParaConforto(vista);
@@ -88,9 +88,9 @@ namespace MackTwin.Revit
         /// Room, pequeno em modelos de teste e aceitável no CCT; quem preferir desligar depois
         /// encontra a opção em Arquitetura › Ambiente e Área › Cálculos de área e volume.
         /// </remarks>
-        public static bool GarantirCalculoDeVolumes(Document documento)
+        private bool GarantirCalculoDeVolumes()
         {
-            var configuracao = AreaVolumeSettings.GetAreaVolumeSettings(documento);
+            var configuracao = AreaVolumeSettings.GetAreaVolumeSettings(_documento);
 
             if (configuracao.ComputeVolumes)
                 return false;

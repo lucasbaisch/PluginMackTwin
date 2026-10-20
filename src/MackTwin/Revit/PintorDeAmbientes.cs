@@ -187,17 +187,9 @@ namespace MackTwin.Revit
             return new Color(r, g, b);
         }
 
-        /// <summary>
-        /// Sobreposição gráfica na cor dada: linhas, padrão de superfície e padrão de corte
-        /// sólidos. Usada nos Rooms (onde só as linhas obedecem) e nos sólidos temporários
-        /// (onde tudo obedece).
-        /// </summary>
-        public static OverrideGraphicSettings MontarSobreposicao(Color cor, FillPatternElement? solido, int transparencia = 0)
+        private static OverrideGraphicSettings MontarSobreposicao(Color cor, FillPatternElement? solido)
         {
             var sobreposicao = new OverrideGraphicSettings();
-
-            if (transparencia > 0)
-                sobreposicao.SetSurfaceTransparency(transparencia);
 
             sobreposicao.SetProjectionLineColor(cor);
             sobreposicao.SetCutLineColor(cor);
