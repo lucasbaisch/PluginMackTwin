@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using Autodesk.Revit.DB.Architecture;
+using MackTwin.Dominio;
 using MackTwin.Interface.Modelos;
 using MackTwin.Revit;
 using EventosDaUI = Autodesk.Revit.UI.Events;
@@ -82,7 +83,7 @@ namespace MackTwin.Interface
                 return;
             }
 
-            var classificar = ClassificadorAtual();
+            var resumir = ResumidorAtual();
 
             _despachante.Executar(app =>
             {
@@ -102,12 +103,13 @@ namespace MackTwin.Interface
                     return;
                 }
 
-                var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, classificar);
+                var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, resumir);
                 uiDocumento.RefreshActiveView();
 
                 string observacao = pintura.Aviso != null
                     ? " " + pintura.Aviso
-                    : $" Esquema de cores \"{EsquemaDeCoresDeConforto.NomeDoEsquema}\" aplicado à vista; o estado de cada sala está no parâmetro \"{EsquemaDeCoresDeConforto.NomeDoParametro}\" do Room.";
+                    : $" Esquema de cores \"{EsquemaDeCoresDeConforto.NomeDoEsquema(GrandezaDeConforto.Geral)}\" aplicado à vista; " +
+                      $"o estado de cada sala está nos parâmetros \"MackTwin Conforto/Temperatura/Umidade\" do Room.";
 
                 Informar($"{pintura.Pintados} sala(s) pintada(s) em \"{vista.Name}\".{observacao}");
             });
@@ -162,7 +164,7 @@ namespace MackTwin.Interface
                 return;
             }
 
-            var classificar = ClassificadorAtual();
+            var resumir = ResumidorAtual();
 
             _despachante.Executar(app =>
             {
@@ -176,7 +178,7 @@ namespace MackTwin.Interface
 
                 var gerador = new GeradorDeVistaRevit(uiDocumento.Document);
                 var vista = gerador.GerarVistaDeConforto(
-                    conjunto, classificar, out int pintados, out bool volumesAtivados, out string? avisoDaPintura);
+                    conjunto, resumir, out int pintados, out bool volumesAtivados, out string? avisoDaPintura);
                 uiDocumento.ActiveView = vista;
                 uiDocumento.RefreshActiveView();
 

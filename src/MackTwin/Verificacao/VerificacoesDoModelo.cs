@@ -101,6 +101,7 @@ namespace MackTwin.Verificacao
             VerificarAgrupamento(resultados);
             VerificarClassificacao(resultados);
             VerificarResumo(resultados);
+            VerificarResumoNoInstante(resultados);
             VerificarAgregacao(resultados);
             VerificarCores(resultados);
             VerificarPlanilhasPorSala(resultados);
@@ -519,6 +520,43 @@ namespace MackTwin.Verificacao
             Afirmar(resultados, "Sensor só de temperatura: umidade \"sem dados\" e geral pela temperatura (22 °C → confortável)",
                     parcial.Umidade.Classificacao == ClassificacaoDeConforto.SemDados
                     && parcial.ClassificacaoGeral == ClassificacaoDeConforto.Confortavel);
+        }
+
+        // ── Estado num instante do passado (quadros do vídeo) ────────────
+
+        private static void VerificarResumoNoInstante(List<ResultadoDeVerificacao> resultados)
+        {
+            const string host = "MMCCTLAB001-001";
+            var ambiente = new Ambiente { Codigo = "LAB001" };
+            var sensor = new Sensor { Hostname = host };
+            sensor.Leituras.Add(Leitura("2026-10-15 00:00:00", host, 20, 40));
+            sensor.Leituras.Add(Leitura("2026-10-15 05:00:00", host, 24, 50));
+            sensor.Leituras.Add(Leitura("2026-10-15 10:00:00", host, 27, 70));
+            ambiente.AdicionarSensor(sensor);
+
+            var tolerancia = TimeSpan.FromHours(2);
+
+            var asSeis = CalculadorDeResumoDoAmbiente.ResumirEm(ambiente, new DateTime(2026, 10, 15, 6, 0, 0), tolerancia);
+
+            Afirmar(resultados, "Às 6 h o estado é o da leitura das 5 h (24 °C → confortável); a das 10 h, futura, não entra",
+                    asSeis.TotalDeLeituras == 1 && Math.Abs(asSeis.Temperatura.Ultimo - 24) < Folga
+                    && asSeis.ClassificacaoGeral == ClassificacaoDeConforto.Confortavel);
+
+            var asOito = CalculadorDeResumoDoAmbiente.ResumirEm(ambiente, new DateTime(2026, 10, 15, 8, 0, 0), tolerancia);
+
+            Afirmar(resultados, "Às 8 h, com tolerância de 2 h, a leitura das 5 h já é velha demais: sem dados",
+                    asOito.TotalDeLeituras == 0 && asOito.ClassificacaoGeral == ClassificacaoDeConforto.SemDados);
+
+            var intervalo = CalculadorDeResumoDoAmbiente.FiltrarIntervalo(ambiente.Leituras,
+                new DateTime(2026, 10, 15, 5, 0, 0), new DateTime(2026, 10, 15, 10, 0, 0));
+
+            Afirmar(resultados, "FiltrarIntervalo é fechado nas duas pontas: [5 h, 10 h] traz as leituras das 5 h e das 10 h",
+                    intervalo.Count == 2 && intervalo[0].Timestamp.Hour == 5 && intervalo[1].Timestamp.Hour == 10);
+
+            Afirmar(resultados, "Resumo expõe a classificação por grandeza pedida",
+                    asSeis.ClassificacaoDe(GrandezaDeConforto.Temperatura) == ClassificacaoDeConforto.Confortavel
+                    && asSeis.ClassificacaoDe(GrandezaDeConforto.Umidade) == ClassificacaoDeConforto.Confortavel
+                    && asSeis.ClassificacaoDe(GrandezaDeConforto.Geral) == asSeis.ClassificacaoGeral);
         }
 
         // ── Agregação da série para períodos longos ──────────────────────

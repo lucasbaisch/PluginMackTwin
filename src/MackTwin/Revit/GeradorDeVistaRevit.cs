@@ -40,7 +40,7 @@ namespace MackTwin.Revit
         }
 
         /// <summary>Gera a vista e pinta as salas casadas. Devolve a vista criada.</summary>
-        /// <param name="classificar">Como obter o estado da sala — normalmente o resumo já calculado para a lista.</param>
+        /// <param name="resumir">Como obter o resumo da sala — normalmente o já calculado para a lista.</param>
         /// <param name="pintados">Quantas salas receberam cor.</param>
         /// <param name="volumesAtivados">
         /// Se foi preciso ligar o cálculo de volumes do projeto. O Revit só desenha Rooms em
@@ -51,7 +51,7 @@ namespace MackTwin.Revit
         /// <exception cref="InvalidOperationException">O modelo não tem tipo de vista 3D.</exception>
         public View3D GerarVistaDeConforto(
             ConjuntoDeAmbientes conjunto,
-            Func<Ambiente, ClassificacaoDeConforto> classificar,
+            Func<Ambiente, ResumoDoAmbiente> resumir,
             out int pintados,
             out bool volumesAtivados,
             out string? avisoDaPintura)
@@ -72,7 +72,7 @@ namespace MackTwin.Revit
                 transacao.Commit();
             }
 
-            var pintura = PintorDeAmbientes.Pintar(_documento, vista, conjunto, classificar);
+            var pintura = PintorDeAmbientes.Pintar(_documento, vista, conjunto, resumir);
             pintados = pintura.Pintados;
             avisoDaPintura = pintura.Aviso;
             return vista;

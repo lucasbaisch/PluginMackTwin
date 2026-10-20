@@ -455,19 +455,18 @@ namespace MackTwin.Interface
         }
 
         /// <summary>
-        /// As classificações já calculadas para a lista, por código de sala — para pintar sem
-        /// resumir tudo de novo.
+        /// Os resumos já calculados para a lista, por código de sala — para pintar e exportar
+        /// sem resumir tudo de novo.
         /// </summary>
-        private Func<Ambiente, ClassificacaoDeConforto> ClassificadorAtual()
+        private Func<Ambiente, ResumoDoAmbiente> ResumidorAtual()
         {
-            var classificacoes = _linhas.ToDictionary(
-                linha => linha.Codigo, linha => linha.Resumo.ClassificacaoGeral, StringComparer.Ordinal);
+            var resumos = _linhas.ToDictionary(linha => linha.Codigo, linha => linha.Resumo, StringComparer.Ordinal);
             TimeSpan? janela = JanelaSelecionada;
             DateTime agora = DateTime.Now;
 
-            return ambiente => classificacoes.TryGetValue(ambiente.Codigo, out var classificacao)
-                ? classificacao
-                : CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela, agora).ClassificacaoGeral;
+            return ambiente => resumos.TryGetValue(ambiente.Codigo, out var resumo)
+                ? resumo
+                : CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela, agora);
         }
 
         // ── Legenda ──────────────────────────────────────────────────────

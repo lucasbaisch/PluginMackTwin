@@ -94,15 +94,19 @@ namespace MackTwin.Revit
                     room.Location == null ? "NÃO colocado" : "colocado",
                     area, volume, deslocamento, room.Level?.Name, room.Id.Value));
 
-                string estado = room.LookupParameter(EsquemaDeCoresDeConforto.NomeDoParametro)?.AsString()
+                string estado = room.LookupParameter(EsquemaDeCoresDeConforto.NomeDoParametro(GrandezaDeConforto.Geral))?.AsString()
                                 ?? "(parâmetro ausente)";
+                string temperatura = room.LookupParameter(EsquemaDeCoresDeConforto.NomeDoParametro(GrandezaDeConforto.Temperatura))?.AsString()
+                                     ?? "(ausente)";
+                string umidade = room.LookupParameter(EsquemaDeCoresDeConforto.NomeDoParametro(GrandezaDeConforto.Umidade))?.AsString()
+                                 ?? "(ausente)";
 
                 var sobreposicao = vista.GetElementOverrides(room.Id);
                 var cor = sobreposicao.ProjectionLineColor;
 
                 linhas.Add(string.Format(cultura,
-                    "      parâmetro \"{0}\" = \"{1}\"; linhas na vista ativa: {2}",
-                    EsquemaDeCoresDeConforto.NomeDoParametro, estado,
+                    "      conforto \"{0}\", temperatura \"{1}\", umidade \"{2}\"; linhas na vista ativa: {3}",
+                    estado, temperatura, umidade,
                     cor.IsValid ? $"RGB({cor.Red},{cor.Green},{cor.Blue})" : "sem sobreposição"));
             }
 

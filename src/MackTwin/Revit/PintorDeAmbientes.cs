@@ -22,9 +22,11 @@ namespace MackTwin.Revit
     /// </summary>
     /// <remarks>
     /// A cor vem do mecanismo nativo do Revit para salas: parâmetro + esquema de cores
-    /// (<see cref="EsquemaDeCoresDeConforto"/>). Por cima disso, uma sobreposição gráfica por
-    /// elemento colore as LINHAS do Room na mesma cor — só as linhas, porque o preenchimento de
-    /// Room ignora sobreposições; serve de reforço visual e some com <see cref="Limpar"/>.
+    /// (<see cref="EsquemaDeCoresDeConforto"/>), na grandeza pedida — estado geral por padrão;
+    /// temperatura ou umidade para a folha de impressão. Os três parâmetros são gravados sempre,
+    /// de modo que trocar a grandeza de uma vista é só trocar o esquema. Por cima disso, uma
+    /// sobreposição gráfica por elemento colore as LINHAS do Room na mesma cor — só as linhas,
+    /// porque o preenchimento de Room ignora sobreposições; some com <see cref="Limpar"/>.
     ///
     /// Na planta, o Room só é visível pela subcategoria "Preenchimento interno", que a maioria
     /// dos templates deixa desligada; por isso <see cref="ExibirCategoriaDeRooms"/> liga a
@@ -52,16 +54,19 @@ namespace MackTwin.Revit
         }
 
         /// <summary>
-        /// Rotula os Rooms, garante o esquema de cores, aplica-o à vista e reforça as linhas.
+        /// Rotula os Rooms (as três grandezas), garante o esquema da grandeza pedida, aplica-o à
+        /// vista e reforça as linhas.
         /// </summary>
-        /// <param name="classificar">Como obter o estado da sala — normalmente o resumo já calculado para a lista.</param>
+        /// <param name="resumir">Como obter o resumo da sala — normalmente o já calculado para a lista.</param>
+        /// <param name="grandeza">Qual estado colore a vista.</param>
         public static ResultadoDaPintura Pintar(
             Document documento,
             View vista,
             ConjuntoDeAmbientes conjunto,
-            Func<Ambiente, ClassificacaoDeConforto> classificar)
+            Func<Ambiente, ResumoDoAmbiente> resumir,
+            GrandezaDeConforto grandeza = GrandezaDeConforto.Geral)
         {
-            var solido = LocalizarPadraoSolido(documento);
+            var solido = EsquemaDeCoresDeConforto.LocalizarPadraoSolido(documento);
 
             using var transacao = new Transaction(documento, ConfiguracaoDePinturaDeAmbientes.NomeDaTransacaoDePintura);
             transacao.Start();
@@ -69,9 +74,9 @@ namespace MackTwin.Revit
             ExibirCategoriaDeRooms(documento, vista);
 
             // 1) estado em cada Room + 2) esquema de cores na vista: é isso que pinta.
-            var idDoParametro = EsquemaDeCoresDeConforto.GarantirParametro(documento);
-            int rotulados = EsquemaDeCoresDeConforto.RotularRooms(documento, conjunto, classificar);
-            var esquema = EsquemaDeCoresDeConforto.GarantirEsquema(documento, idDoParametro, solido);
+            var idsDosParametros = EsquemaDeCoresDeConforto.GarantirParametros(documento);
+            int rotulados = EsquemaDeCoresDeConforto.RotularRooms(documento, conjunto, resumir);
+            var esquema = EsquemaDeCoresDeConforto.GarantirEsquema(documento, grandeza, idsDosParametros[grandeza], solido);
             bool esquemaAplicado = esquema != null && EsquemaDeCoresDeConforto.AplicarAVista(vista, esquema);
 
             string? aviso = esquema == null
@@ -93,7 +98,7 @@ namespace MackTwin.Revit
                 if (documento.GetElement(id) == null)
                     continue;
 
-                var cor = ParaCorDoRevit(CoresDeConforto.Para(classificar(ambiente)));
+                var cor = ParaCorDoRevit(CoresDeConforto.Para(resumir(ambiente).ClassificacaoDe(grandeza)));
                 vista.SetElementOverrides(id, MontarSobreposicao(cor, solido));
             }
 
@@ -200,14 +205,6 @@ namespace MackTwin.Revit
             }
 
             return sobreposicao;
-        }
-
-        private static FillPatternElement? LocalizarPadraoSolido(Document documento)
-        {
-            return new FilteredElementCollector(documento)
-                .OfClass(typeof(FillPatternElement))
-                .Cast<FillPatternElement>()
-                .FirstOrDefault(padrao => padrao.GetFillPattern().IsSolidFill);
         }
     }
 }

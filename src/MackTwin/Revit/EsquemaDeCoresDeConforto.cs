@@ -11,8 +11,8 @@ using MackTwin.Processamento;
 namespace MackTwin.Revit
 {
     /// <summary>
-    /// Pinta as salas do jeito que o Revit pinta salas: um parâmetro de Room com o estado de
-    /// conforto e um esquema de cores por valor aplicado à vista.
+    /// Pinta as salas do jeito que o Revit pinta salas: parâmetros de Room com o estado de
+    /// conforto e esquemas de cores por valor aplicados à vista — um conjunto por grandeza.
     /// </summary>
     /// <remarks>
     /// <b>Por que não sobreposição gráfica.</b> O preenchimento de um Room — na planta e no
@@ -21,15 +21,19 @@ namespace MackTwin.Revit
     /// preenchimento. Foi verificado no modelo de teste: sobreposição aplicada, Room com
     /// volume, nada visível.
     ///
-    /// <b>O que fica no projeto.</b> Um parâmetro compartilhado <c>MackTwin Conforto</c> (texto)
-    /// vinculado a Ambientes e um esquema de cores <c>MackTwin Conforto</c> da categoria
-    /// Ambientes. Ambos são criados uma vez e reaproveitados; o valor do parâmetro é regravado a
-    /// cada pintura. O arquivo de parâmetros compartilhados fica na pasta de dados do usuário,
-    /// e a configuração anterior do Revit é restaurada ao fim.
+    /// <b>Três grandezas, três pares parâmetro/esquema.</b> <c>MackTwin Conforto</c> (estado
+    /// geral), <c>MackTwin Temperatura</c> e <c>MackTwin Umidade</c>. A cada pintura os três
+    /// parâmetros são gravados em todos os Rooms; a vista recebe o esquema da grandeza pedida.
+    /// É o que permite à folha de impressão mostrar temperatura e umidade lado a lado, cada
+    /// uma com a sua legenda.
     ///
-    /// <b>Só grava o que mudou.</b> As entradas do esquema só são reescritas quando diferem das
-    /// desejadas, e o parâmetro é localizado pelo próprio Room (sem varrer o documento) quando
-    /// já existe — menos alterações no modelo, menos entradas de "desfazer".
+    /// <b>O que fica no projeto.</b> Os parâmetros compartilhados (texto, vinculados a
+    /// Ambientes) e os esquemas de cores da categoria Ambientes. Criados uma vez, reaproveitados;
+    /// o arquivo de parâmetros compartilhados fica na pasta de dados do usuário, e a
+    /// configuração anterior do Revit é restaurada ao fim.
+    ///
+    /// <b>Só grava o que mudou.</b> Entradas do esquema só reescritas quando diferem; valor do
+    /// parâmetro só gravado se mudou; parâmetro localizado pelo próprio Room quando já existe.
     ///
     /// O esquema é criado por duplicação de um esquema de Ambientes já existente, porque a API
     /// não cria esquemas do zero; um projeto sem nenhum esquema de Ambientes recebe aviso.
@@ -37,14 +41,15 @@ namespace MackTwin.Revit
     /// </remarks>
     public static class EsquemaDeCoresDeConforto
     {
-        /// <summary>Nome do parâmetro de Room que recebe o estado da sala.</summary>
-        public const string NomeDoParametro = "MackTwin Conforto";
-
-        /// <summary>Nome do esquema de cores da categoria Ambientes.</summary>
-        public const string NomeDoEsquema = "MackTwin Conforto";
-
         private const string NomeDoGrupoDeParametros = "MackTwin";
         private const string NomeDoArquivoDeParametros = "MackTwin.parametros.txt";
+
+        private static readonly GrandezaDeConforto[] Grandezas =
+        {
+            GrandezaDeConforto.Geral,
+            GrandezaDeConforto.Temperatura,
+            GrandezaDeConforto.Umidade,
+        };
 
         private static readonly ClassificacaoDeConforto[] Estados =
         {
@@ -56,17 +61,55 @@ namespace MackTwin.Revit
 
         private static ElementId IdDeRooms => new(BuiltInCategory.OST_Rooms);
 
-        // ── Parâmetro ────────────────────────────────────────────────────
+        /// <summary>Nome do parâmetro de Room que recebe o estado da grandeza.</summary>
+        public static string NomeDoParametro(GrandezaDeConforto grandeza)
+        {
+            return grandeza switch
+            {
+                GrandezaDeConforto.Temperatura => "MackTwin Temperatura",
+                GrandezaDeConforto.Umidade => "MackTwin Umidade",
+                _ => "MackTwin Conforto",
+            };
+        }
+
+        /// <summary>Nome do esquema de cores da grandeza (o mesmo do parâmetro).</summary>
+        public static string NomeDoEsquema(GrandezaDeConforto grandeza) => NomeDoParametro(grandeza);
+
+        /// <summary>Descrição curta da grandeza, para rótulos e títulos de vista.</summary>
+        public static string Descrever(GrandezaDeConforto grandeza)
+        {
+            return grandeza switch
+            {
+                GrandezaDeConforto.Temperatura => "Temperatura",
+                GrandezaDeConforto.Umidade => "Umidade",
+                _ => "Conforto",
+            };
+        }
+
+        // ── Parâmetros ───────────────────────────────────────────────────
+
+        /// <summary>Garante os três parâmetros vinculados a Ambientes e devolve os seus ElementIds.</summary>
+        public static IReadOnlyDictionary<GrandezaDeConforto, ElementId> GarantirParametros(Document documento)
+        {
+            var ids = new Dictionary<GrandezaDeConforto, ElementId>();
+
+            foreach (var grandeza in Grandezas)
+                ids[grandeza] = GarantirParametro(documento, grandeza);
+
+            return ids;
+        }
 
         /// <summary>
-        /// Garante o parâmetro <see cref="NomeDoParametro"/> vinculado a Ambientes e devolve o
-        /// seu ElementId (o que o esquema de cores referencia).
+        /// Garante o parâmetro da grandeza vinculado a Ambientes e devolve o seu ElementId (o
+        /// que o esquema de cores referencia).
         /// </summary>
-        public static ElementId GarantirParametro(Document documento)
+        public static ElementId GarantirParametro(Document documento, GrandezaDeConforto grandeza)
         {
+            string nome = NomeDoParametro(grandeza);
+
             // Caminho rápido: se qualquer Room já expõe o parâmetro, o Id está nele.
             var primeiroRoom = ColetarRooms(documento).FirstOrDefault();
-            var noRoom = primeiroRoom?.LookupParameter(NomeDoParametro);
+            var noRoom = primeiroRoom?.LookupParameter(nome);
 
             if (noRoom != null && noRoom.Id != ElementId.InvalidElementId)
                 return noRoom.Id;
@@ -74,7 +117,7 @@ namespace MackTwin.Revit
             var existente = new FilteredElementCollector(documento)
                 .OfClass(typeof(SharedParameterElement))
                 .Cast<SharedParameterElement>()
-                .FirstOrDefault(parametro => parametro.Name == NomeDoParametro);
+                .FirstOrDefault(parametro => parametro.Name == nome);
 
             if (existente != null)
                 return existente.Id;
@@ -99,11 +142,11 @@ namespace MackTwin.Revit
                 var grupo = arquivo.Groups.get_Item(NomeDoGrupoDeParametros)
                     ?? arquivo.Groups.Create(NomeDoGrupoDeParametros);
 
-                var definicao = grupo.Definitions.get_Item(NomeDoParametro) as ExternalDefinition
+                var definicao = grupo.Definitions.get_Item(nome) as ExternalDefinition
                     ?? (ExternalDefinition)grupo.Definitions.Create(
-                        new ExternalDefinitionCreationOptions(NomeDoParametro, SpecTypeId.String.Text)
+                        new ExternalDefinitionCreationOptions(nome, SpecTypeId.String.Text)
                         {
-                            Description = "Estado de conforto da sala (temperatura e umidade), gravado pelo MackTwin a cada pintura.",
+                            Description = $"Estado de conforto da sala ({Descrever(grandeza).ToLowerInvariant()}), gravado pelo MackTwin a cada pintura.",
                             UserModifiable = false,
                         });
 
@@ -125,14 +168,14 @@ namespace MackTwin.Revit
         }
 
         /// <summary>
-        /// Grava, em TODOS os Rooms colocados, o estado da sala: o da classificação para os
+        /// Grava, em TODOS os Rooms colocados, os três estados da sala: os do resumo para os
         /// casados, "Sem dados" para os demais — assim o prédio inteiro fica legível de relance.
         /// Só toca o parâmetro cujo valor mudou. Devolve quantos Rooms casados foram rotulados.
         /// </summary>
         public static int RotularRooms(
             Document documento,
             ConjuntoDeAmbientes conjunto,
-            Func<Ambiente, ClassificacaoDeConforto> classificar)
+            Func<Ambiente, ResumoDoAmbiente> resumir)
         {
             var ambientesPorId = conjunto.Ambientes
                 .Where(ambiente => ambiente.IdDoElementoNoModelo.HasValue)
@@ -142,20 +185,25 @@ namespace MackTwin.Revit
 
             foreach (var room in ColetarRooms(documento))
             {
-                var parametro = room.LookupParameter(NomeDoParametro)
-                    ?? throw new InvalidOperationException(
-                        $"O parâmetro \"{NomeDoParametro}\" existe no projeto, mas não está vinculado à categoria " +
-                        "Ambientes. Vincule-o em Gerenciar › Parâmetros do projeto (ou remova-o, que o plug-in o recria).");
-
-                if (parametro.IsReadOnly)
-                    continue;
-
                 bool casado = ambientesPorId.TryGetValue(room.Id.Value, out var ambiente);
-                var classificacao = casado ? classificar(ambiente!) : ClassificacaoDeConforto.SemDados;
-                string valor = ClassificadorDeConforto.Descrever(classificacao);
+                var resumo = casado ? resumir(ambiente!) : null;
 
-                if (!string.Equals(parametro.AsString(), valor, StringComparison.Ordinal))
-                    parametro.Set(valor);
+                foreach (var grandeza in Grandezas)
+                {
+                    var parametro = room.LookupParameter(NomeDoParametro(grandeza))
+                        ?? throw new InvalidOperationException(
+                            $"O parâmetro \"{NomeDoParametro(grandeza)}\" existe no projeto, mas não está vinculado à categoria " +
+                            "Ambientes. Vincule-o em Gerenciar › Parâmetros do projeto (ou remova-o, que o plug-in o recria).");
+
+                    if (parametro.IsReadOnly)
+                        continue;
+
+                    var classificacao = resumo?.ClassificacaoDe(grandeza) ?? ClassificacaoDeConforto.SemDados;
+                    string valor = ClassificadorDeConforto.Descrever(classificacao);
+
+                    if (!string.Equals(parametro.AsString(), valor, StringComparison.Ordinal))
+                        parametro.Set(valor);
+                }
 
                 if (casado)
                     rotulados++;
@@ -164,22 +212,25 @@ namespace MackTwin.Revit
             return rotulados;
         }
 
-        // ── Esquema de cores ─────────────────────────────────────────────
+        // ── Esquemas de cores ────────────────────────────────────────────
 
         /// <summary>
-        /// Garante o esquema <see cref="NomeDoEsquema"/> (categoria Ambientes, por valor do
-        /// parâmetro) com as quatro cores de conforto. Devolve null se o projeto não tem nenhum
-        /// esquema de Ambientes para servir de base.
+        /// Garante o esquema da grandeza (categoria Ambientes, por valor do parâmetro) com as
+        /// quatro cores de conforto. Devolve null se o projeto não tem nenhum esquema de
+        /// Ambientes para servir de base.
         /// </summary>
-        public static ColorFillScheme? GarantirEsquema(Document documento, ElementId idDoParametro, FillPatternElement? solido)
+        public static ColorFillScheme? GarantirEsquema(
+            Document documento, GrandezaDeConforto grandeza, ElementId idDoParametro, FillPatternElement? solido)
         {
+            string nome = NomeDoEsquema(grandeza);
+
             var esquemasDeRooms = new FilteredElementCollector(documento)
                 .OfClass(typeof(ColorFillScheme))
                 .Cast<ColorFillScheme>()
                 .Where(esquema => esquema.CategoryId == IdDeRooms)
                 .ToList();
 
-            var esquema = esquemasDeRooms.FirstOrDefault(e => e.Name == NomeDoEsquema);
+            var esquema = esquemasDeRooms.FirstOrDefault(e => e.Name == nome);
 
             if (esquema == null)
             {
@@ -188,7 +239,7 @@ namespace MackTwin.Revit
                 if (modelo == null)
                     return null;
 
-                esquema = (ColorFillScheme)documento.GetElement(modelo.Duplicate(NomeDoEsquema));
+                esquema = (ColorFillScheme)documento.GetElement(modelo.Duplicate(nome));
             }
 
             if (esquema.ParameterDefinition != idDoParametro)
@@ -301,6 +352,15 @@ namespace MackTwin.Revit
             }
 
             return true;
+        }
+
+        /// <summary>Padrão de preenchimento sólido do projeto, ou null.</summary>
+        public static FillPatternElement? LocalizarPadraoSolido(Document documento)
+        {
+            return new FilteredElementCollector(documento)
+                .OfClass(typeof(FillPatternElement))
+                .Cast<FillPatternElement>()
+                .FirstOrDefault(padrao => padrao.GetFillPattern().IsSolidFill);
         }
 
         private static IEnumerable<Room> ColetarRooms(Document documento)

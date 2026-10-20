@@ -61,5 +61,16 @@ namespace MackTwin.Dominio
 
         /// <summary>Quantos sensores a sala tem.</summary>
         public int QuantidadeDeSensores { get; init; }
+
+        /// <summary>A classificação pedida: geral, da temperatura ou da umidade.</summary>
+        public ClassificacaoDeConforto ClassificacaoDe(GrandezaDeConforto grandeza)
+        {
+            return grandeza switch
+            {
+                GrandezaDeConforto.Temperatura => Temperatura.Classificacao,
+                GrandezaDeConforto.Umidade => Umidade.Classificacao,
+                _ => ClassificacaoGeral,
+            };
+        }
     }
 }
