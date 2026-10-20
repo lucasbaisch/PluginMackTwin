@@ -232,6 +232,29 @@
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoDiagnostico_Click"/>
                                 </WrapPanel>
 
+                                <TextBlock Text="LINHA DO TEMPO · ÚLTIMAS 24 H" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,6"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Slider x:Name="DeslizadorDoTempo" Minimum="0" Maximum="24" Value="24"
+                                            TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="BottomRight"
+                                            MaxWidth="520" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Foreground="{StaticResource BrushBrand}"
+                                            ToolTip="Arraste para ver, na vista ativa, o estado que as salas tinham a cada hora; a última posição é o agora"
+                                            ValueChanged="DeslizadorDoTempo_ValueChanged"/>
+                                    <TextBlock Grid.Column="1" x:Name="TextoDoInstante" Text="Agora" MinWidth="110"
+                                               FontWeight="SemiBold" Foreground="{StaticResource BrushTx}"
+                                               VerticalAlignment="Center" Margin="14,0,10,0"/>
+                                    <Button Grid.Column="2" x:Name="BotaoVoltarAoAgora" Content="Voltar ao agora"
+                                            Style="{StaticResource EstiloBotaoPrincipalCompacto}" VerticalAlignment="Center"
+                                            Click="BotaoVoltarAoAgora_Click"/>
+                                </Grid>
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTx3}" FontSize="10.5" Margin="0,0,0,8"
+                                           Text="A vista ativa é repintada com o estado daquela hora (leitura com até 1 h de idade). A lista e os cartões continuam ao vivo."/>
+
                                 <TextBlock Text="EXPORTAÇÃO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
                                 <WrapPanel>
                                     <Button x:Name="BotaoExportarVideo" Content="Exportar vídeo do último dia"

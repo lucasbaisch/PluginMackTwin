@@ -1,9 +1,14 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
+using System.Windows.Threading;
 using Autodesk.Revit.DB.Architecture;
+using MackTwin.Configuracao;
 using MackTwin.Dominio;
+using MackTwin.Exportacao;
 using MackTwin.Interface.Modelos;
+using MackTwin.Processamento;
 using MackTwin.Revit;
 using EventosDaUI = Autodesk.Revit.UI.Events;
 
@@ -221,6 +226,113 @@ namespace MackTwin.Interface
                 }
 
                 SeletorDeAmbiente.MostrarNoModelo(uiDocumento, id);
+            });
+        }
+
+        // ── Linha do tempo ───────────────────────────────────────────────
+
+        private DispatcherTimer? _temporizadorDaLinhaDoTempo;
+
+        /// <summary>Posição do deslizador que significa "agora" (as 24 anteriores são horas cheias passadas).</summary>
+        private const int PosicaoDoAgora = ConfiguracaoDeExportacao.QuantidadeDeQuadros;
+
+        /// <summary>
+        /// O usuário arrastou o deslizador: atualiza o rótulo na hora e agenda a repintura do
+        /// modelo para daqui a pouco — repintar a cada pixel de arrasto afogaria o Revit em
+        /// eventos externos; com o atraso, só a posição em que a mão parou é aplicada.
+        /// </summary>
+        private void DeslizadorDoTempo_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> evento)
+        {
+            if (TextoDoInstante == null)
+                return; // disparo durante a construção do XAML
+
+            int posicao = PosicaoSelecionada();
+            bool passado = posicao < PosicaoDoAgora;
+
+            TextoDoInstante.Text = passado
+                ? LinhaDoTempoDoVideo.Instantes(DateTime.Now)[posicao].ToString("dd/MM HH:mm", CultureInfo.CurrentCulture)
+                : "Agora";
+            TextoDoInstante.Foreground = Recursos.Paleta.Pincel(passado ? Recursos.Paleta.Marca : Recursos.Paleta.Texto);
+
+            _temporizadorDaLinhaDoTempo ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _temporizadorDaLinhaDoTempo.Tick -= LinhaDoTempo_Tick;
+            _temporizadorDaLinhaDoTempo.Tick += LinhaDoTempo_Tick;
+            _temporizadorDaLinhaDoTempo.Stop();
+            _temporizadorDaLinhaDoTempo.Start();
+        }
+
+        private void LinhaDoTempo_Tick(object? sender, EventArgs evento)
+        {
+            _temporizadorDaLinhaDoTempo?.Stop();
+            AplicarInstanteDaLinhaDoTempo();
+        }
+
+        private void BotaoVoltarAoAgora_Click(object sender, RoutedEventArgs evento)
+        {
+            DeslizadorDoTempo.Value = PosicaoDoAgora;
+        }
+
+        private int PosicaoSelecionada()
+        {
+            return Math.Clamp((int)Math.Round(DeslizadorDoTempo.Value), 0, PosicaoDoAgora);
+        }
+
+        /// <summary>
+        /// Repinta a vista ativa com o estado que as salas tinham na hora escolhida — ou com o
+        /// estado atual, na última posição. Só o modelo muda; lista e cartões continuam ao vivo.
+        /// </summary>
+        private void AplicarInstanteDaLinhaDoTempo()
+        {
+            var conjunto = _conjunto;
+
+            if (conjunto == null)
+            {
+                Informar("Aguarde a primeira atualização para usar a linha do tempo.");
+                return;
+            }
+
+            int posicao = PosicaoSelecionada();
+            Func<Ambiente, ResumoDoAmbiente> resumir;
+            string descricao;
+
+            if (posicao >= PosicaoDoAgora)
+            {
+                resumir = ResumidorAtual();
+                descricao = "agora (ao vivo)";
+            }
+            else
+            {
+                var instante = LinhaDoTempoDoVideo.Instantes(DateTime.Now)[posicao];
+                var resumos = conjunto.Ambientes.ToDictionary(
+                    ambiente => ambiente.Codigo,
+                    ambiente => CalculadorDeResumoDoAmbiente.ResumirEm(ambiente, instante, LinhaDoTempoDoVideo.Tolerancia),
+                    StringComparer.Ordinal);
+
+                resumir = ambiente => resumos.TryGetValue(ambiente.Codigo, out var resumo)
+                    ? resumo
+                    : CalculadorDeResumoDoAmbiente.ResumirEm(ambiente, instante, LinhaDoTempoDoVideo.Tolerancia);
+                descricao = instante.ToString("dd/MM/yyyy HH:mm", CultureInfo.CurrentCulture);
+            }
+
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                    return;
+
+                var vista = uiDocumento.ActiveView;
+
+                if (!PintorDeAmbientes.VistaAceitaPintura(vista))
+                {
+                    TextoStatus.Text = $"A vista ativa (\"{vista.Name}\") não aceita pintura; abra uma planta ou vista 3D para usar a linha do tempo.";
+                    return;
+                }
+
+                var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, resumir);
+                uiDocumento.RefreshActiveView();
+
+                TextoStatus.Text = pintura.Aviso ?? $"Modelo mostrando o estado de {descricao} em \"{vista.Name}\".";
             });
         }
 
