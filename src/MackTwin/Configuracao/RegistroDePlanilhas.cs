@@ -34,18 +34,31 @@ namespace MackTwin.Configuracao
         public override string ToString() => Nome;
     }
 
+    /// <summary>Uma sala cadastrada à mão, antes de (ou sem) qualquer sensor anunciá-la.</summary>
+    public sealed class SalaRegistrada
+    {
+        /// <summary>Código normalizado (ex.: LAB002) — o mesmo do Número do Room e do HOSTNAME.</summary>
+        public string Codigo { get; set; } = string.Empty;
+
+        /// <summary>Nome amigável opcional, exibido enquanto a sala não casa com um Room.</summary>
+        public string? Nome { get; set; }
+
+        public override string ToString() => Codigo;
+    }
+
     /// <summary>
-    /// Cadastro das planilhas que alimentam o painel, persistido em JSON na pasta de dados do
-    /// usuário (<see cref="ConfiguracaoDeArmazenamento"/>).
+    /// Cadastro das planilhas que alimentam o painel e das salas criadas à mão, persistido em
+    /// JSON na pasta de dados do usuário (<see cref="ConfiguracaoDeArmazenamento"/>).
     /// </summary>
     /// <remarks>
     /// Começa com a planilha do DHT22 e cresce pela própria interface do plug-in, sala por sala.
-    /// Usa <c>System.Text.Json</c>, que já vem no .NET 8: nenhum pacote novo.
+    /// Uma sala normalmente nasce do HOSTNAME de um sensor; cadastrá-la à mão serve para
+    /// prepará-la antes de o sensor existir — e para que o cadastro das planilhas dela tenha
+    /// onde morar. Usa <c>System.Text.Json</c>, que já vem no .NET 8: nenhum pacote novo.
     ///
     /// A leitura é tolerante: arquivo ausente, vazio ou corrompido devolve o cadastro padrão e
     /// registra um aviso, em vez de derrubar a abertura da janela. O cadastro em disco só é
-    /// sobrescrito por uma ação explícita do usuário (adicionar, editar, remover, atribuir,
-    /// ativar/desativar).
+    /// sobrescrito por uma ação explícita do usuário.
     /// </remarks>
     public sealed class RegistroDePlanilhas
     {
@@ -58,6 +71,9 @@ namespace MackTwin.Configuracao
 
         /// <summary>Todas as planilhas cadastradas, ativas ou não, na ordem de cadastro.</summary>
         public List<PlanilhaRegistrada> Planilhas { get; set; } = new();
+
+        /// <summary>Salas cadastradas à mão, na ordem de cadastro.</summary>
+        public List<SalaRegistrada> Salas { get; set; } = new();
 
         /// <summary>As planilhas que entram no ciclo de atualização.</summary>
         [JsonIgnore]
@@ -96,7 +112,7 @@ namespace MackTwin.Configuracao
                 string json = File.ReadAllText(caminho);
                 var registro = JsonSerializer.Deserialize<RegistroDePlanilhas>(json, Opcoes);
 
-                if (registro == null || registro.Planilhas.Count == 0)
+                if (registro == null || (registro.Planilhas.Count == 0 && registro.Salas.Count == 0))
                 {
                     avisos?.Add($"Cadastro de planilhas vazio em {caminho}; usando o padrão.");
                     return Padrao();
@@ -104,6 +120,13 @@ namespace MackTwin.Configuracao
 
                 foreach (var planilha in registro.Planilhas)
                     planilha.Sala = NormalizarSala(planilha.Sala);
+
+                registro.Salas = registro.Salas
+                    .Select(sala => new SalaRegistrada { Codigo = NormalizarSala(sala.Codigo) ?? string.Empty, Nome = sala.Nome })
+                    .Where(sala => sala.Codigo.Length > 0)
+                    .GroupBy(sala => sala.Codigo, StringComparer.Ordinal)
+                    .Select(grupo => grupo.First())
+                    .ToList();
 
                 return registro;
             }
@@ -122,6 +145,8 @@ namespace MackTwin.Configuracao
                 ConfiguracaoDeArmazenamento.CaminhoDoArquivoDePlanilhas,
                 JsonSerializer.Serialize(this, Opcoes));
         }
+
+        // ── Planilhas ────────────────────────────────────────────────────
 
         /// <summary>Acrescenta uma planilha, marcada com a sala informada (ou sem marca), e grava.</summary>
         public PlanilhaRegistrada Adicionar(string nome, string url, string? sala = null)
@@ -147,6 +172,59 @@ namespace MackTwin.Configuracao
                 Salvar();
 
             return removida;
+        }
+
+        // ── Salas cadastradas à mão ──────────────────────────────────────
+
+        /// <summary>
+        /// Cadastra uma sala pelo código (qualquer grafia) e grava. Se já existe, só atualiza o
+        /// nome. Devolve a sala cadastrada.
+        /// </summary>
+        /// <exception cref="ArgumentException">Código vazio.</exception>
+        public SalaRegistrada AdicionarSala(string codigo, string? nome = null)
+        {
+            string normalizado = NormalizarSala(codigo)
+                ?? throw new ArgumentException("Informe o código da sala (ex.: LAB002).", nameof(codigo));
+
+            string? nomeAparado = string.IsNullOrWhiteSpace(nome) ? null : nome.Trim();
+            var existente = Salas.FirstOrDefault(sala => sala.Codigo == normalizado);
+
+            if (existente != null)
+            {
+                if (nomeAparado != null)
+                    existente.Nome = nomeAparado;
+            }
+            else
+            {
+                existente = new SalaRegistrada { Codigo = normalizado, Nome = nomeAparado };
+                Salas.Add(existente);
+            }
+
+            Salvar();
+            return existente;
+        }
+
+        /// <summary>Remove uma sala cadastrada à mão e grava. Devolve false se não estava no cadastro.</summary>
+        public bool RemoverSala(string? codigo)
+        {
+            string? normalizado = NormalizarSala(codigo);
+
+            if (normalizado == null)
+                return false;
+
+            int removidas = Salas.RemoveAll(sala => sala.Codigo == normalizado);
+
+            if (removidas > 0)
+                Salvar();
+
+            return removidas > 0;
+        }
+
+        /// <summary>Se a sala foi cadastrada à mão.</summary>
+        public bool SalaCadastrada(string? codigo)
+        {
+            string? normalizado = NormalizarSala(codigo);
+            return normalizado != null && Salas.Any(sala => sala.Codigo == normalizado);
         }
 
         // ── Planilhas por sala ───────────────────────────────────────────

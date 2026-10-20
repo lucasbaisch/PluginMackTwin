@@ -85,7 +85,8 @@ namespace MackTwin.Processamento
                 }
             }
 
-            var conjunto = AgrupadorDeAmbientes.Agrupar(leituras, avisos);
+            var conjunto = AgrupadorDeAmbientes.Agrupar(
+                leituras, avisos, Registro.Salas.Select(sala => (sala.Codigo, sala.Nome)));
             conjunto.PlanilhasComFalha = falhas;
             conjunto.SalasPorPlanilha = salasPorPlanilha;
 

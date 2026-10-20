@@ -16,6 +16,9 @@
     <SolidColorBrush x:Key="BrushDisabled"  Color="{x:Static r:Paleta.Desativado}"/>
     <SolidColorBrush x:Key="BrushTxDisabled" Color="{x:Static r:Paleta.TextoDesativado}"/>
 
+    <!-- Conversor padrão do WPF para ligar Visibility a propriedades booleanas. -->
+    <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+
     <!-- ── Superfícies ──────────────────────────────────────────────────── -->
     <Style x:Key="EstiloCartao" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource BrushSurface}"/>

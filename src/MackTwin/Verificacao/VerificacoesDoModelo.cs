@@ -360,6 +360,20 @@ namespace MackTwin.Verificacao
 
             Afirmar(resultados, "Sem leituras, o conjunto é vazio e não falha",
                     AgrupadorDeAmbientes.Agrupar(Array.Empty<Leitura>()).Ambientes.Count == 0);
+
+            var comCadastradas = AgrupadorDeAmbientes.Agrupar(
+                leituras, null, new[] { ("lab-003", (string?)"Laboratório de Física"), ("LAB001", (string?)null) });
+
+            var lab003 = comCadastradas.Ambientes.FirstOrDefault(a => a.Codigo == "LAB003");
+
+            Afirmar(resultados, "Sala cadastrada à mão sem sensor entra no conjunto, vazia, marcada como manual e com o nome",
+                    lab003 != null && lab003.Sensores.Count == 0 && lab003.CadastradaManualmente
+                    && lab003.Titulo == "LAB003 — Laboratório de Física" && lab003.UltimaLeitura == null);
+
+            Afirmar(resultados, "Sala cadastrada à mão que também tem sensor não é duplicada e mantém os sensores",
+                    comCadastradas.Ambientes.Count(a => a.Codigo == "LAB001") == 1
+                    && comCadastradas.Ambientes.First(a => a.Codigo == "LAB001").Sensores.Count == 2
+                    && comCadastradas.Ambientes.Count == 3);
         }
 
         // ── Faixas de conforto ───────────────────────────────────────────

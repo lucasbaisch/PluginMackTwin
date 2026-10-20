@@ -39,6 +39,12 @@ namespace MackTwin.Dominio
         /// <summary>Se há um Room correspondente no modelo aberto.</summary>
         public bool CasadoComOModelo => IdDoElementoNoModelo.HasValue;
 
+        /// <summary>Nome dado no cadastro manual da sala, exibido enquanto ela não casa com um Room.</summary>
+        public string? Apelido { get; set; }
+
+        /// <summary>Se a sala foi cadastrada à mão (e não anunciada por um sensor).</summary>
+        public bool CadastradaManualmente { get; set; }
+
         /// <summary>
         /// Acrescenta um sensor. As leituras do sensor devem estar completas e em ordem
         /// cronológica — é assim que o agrupador as entrega.
@@ -62,10 +68,15 @@ namespace MackTwin.Dominio
             }
         }
 
-        /// <summary>Título para a interface: código e, se houver, o nome no modelo.</summary>
-        public string Titulo => string.IsNullOrWhiteSpace(NomeNoModelo)
-            ? Codigo
-            : $"{Codigo} — {NomeNoModelo}";
+        /// <summary>Título para a interface: código e, se houver, o nome no modelo (ou o do cadastro).</summary>
+        public string Titulo
+        {
+            get
+            {
+                string? nome = !string.IsNullOrWhiteSpace(NomeNoModelo) ? NomeNoModelo : Apelido;
+                return string.IsNullOrWhiteSpace(nome) ? Codigo : $"{Codigo} — {nome}";
+            }
+        }
 
         private List<Leitura> Consolidar()
         {

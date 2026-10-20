@@ -126,6 +126,77 @@ namespace MackTwin.Interface
             ReexibirConjunto();
         }
 
+        // ── Salas cadastradas à mão ──────────────────────────────────────
+
+        private async void BotaoAdicionarSala_Click(object sender, RoutedEventArgs evento)
+        {
+            var dialogo = new JanelaDeCadastroDeSala { Owner = this };
+
+            if (dialogo.ShowDialog() != true)
+                return;
+
+            string codigo;
+
+            try
+            {
+                codigo = _registro.AdicionarSala(dialogo.Codigo, dialogo.Nome).Codigo;
+            }
+            catch (Exception excecao)
+            {
+                MessageBox.Show(this, excecao.Message, "Adicionar sala", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            Informar($"Sala {codigo} cadastrada. Numere o Room do modelo com \"{codigo}\" para ela casar, e cadastre as planilhas dela aqui.");
+            await AtualizarAsync();
+            SelecionarSala(codigo);
+        }
+
+        private async void RemoverSala_Click(object sender, RoutedEventArgs evento)
+        {
+            if (Contexto<LinhaDeAmbiente>(sender) is not { } linha || !linha.PodeRemoverSala)
+                return;
+
+            var resposta = MessageBox.Show(this,
+                $"Remover a sala {linha.Codigo} do cadastro? As planilhas cadastradas nela continuam no cadastro, sem sala.",
+                "Remover sala", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (resposta != MessageBoxResult.Yes)
+                return;
+
+            foreach (var planilha in _registro.Planilhas)
+            {
+                if (planilha.Sala == linha.Codigo)
+                    planilha.Sala = null;
+            }
+
+            try
+            {
+                _registro.RemoverSala(linha.Codigo);
+            }
+            catch (Exception excecao)
+            {
+                MessageBox.Show(this, excecao.Message, "Remover sala", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            await AtualizarAsync();
+        }
+
+        /// <summary>Seleciona na lista a sala com o código informado, se ela já estiver lá.</summary>
+        private void SelecionarSala(string codigo)
+        {
+            foreach (var linha in _linhas)
+            {
+                if (linha.Codigo == codigo)
+                {
+                    ListaDeAmbientes.SelectedItem = linha;
+                    ListaDeAmbientes.ScrollIntoView(linha);
+                    return;
+                }
+            }
+        }
+
         private void PlanilhaAtivaAlterada(object sender, RoutedEventArgs evento)
         {
             // O evento também dispara quando o binding aplica o valor inicial, antes de o

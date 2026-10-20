@@ -93,6 +93,10 @@
                         <TextBlock x:Name="TextoDicaDeEdicao" Visibility="Collapsed" TextWrapping="Wrap"
                                    Text="Cadastre as planilhas dentro da sala a que pertencem."
                                    FontSize="10.5" Foreground="{StaticResource BrushBrandDark}" Margin="0,-6,0,10"/>
+                        <Button x:Name="BotaoAdicionarSala" Content="+  Adicionar sala" Visibility="Collapsed"
+                                Style="{StaticResource EstiloBotaoSecundario}" HorizontalAlignment="Stretch"
+                                Margin="0,0,0,10" ToolTip="Cria uma sala antes de o sensor existir, para cadastrar as planilhas dela"
+                                Click="BotaoAdicionarSala_Click"/>
                     </StackPanel>
 
                     <Expander DockPanel.Dock="Bottom" x:Name="ExpansorSemSala" Header="Sem sala" Margin="0,8,0,0"
@@ -194,6 +198,11 @@
                                             <Button Content="{Binding RotuloDeAdicionar}" Style="{StaticResource EstiloBotaoPrincipalCompacto}"
                                                     HorizontalAlignment="Stretch" Margin="0,4,0,2"
                                                     Tag="{Binding}" Click="AdicionarPlanilhaNaSala_Click"/>
+                                            <Button Content="remover esta sala do cadastro" Style="{StaticResource EstiloBotaoLink}"
+                                                    HorizontalAlignment="Right" Margin="0,8,0,0"
+                                                    Visibility="{Binding PodeRemoverSala, Converter={StaticResource BoolParaVisibilidade}}"
+                                                    ToolTip="Só para salas criadas à mão e ainda sem sensor"
+                                                    Tag="{Binding}" Click="RemoverSala_Click"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Grid>

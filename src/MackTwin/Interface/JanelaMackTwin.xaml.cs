@@ -140,6 +140,7 @@ namespace MackTwin.Interface
 
             TextoTituloDeSalas.Text = editar ? "SALAS  ·  MODO EDIÇÃO" : "SALAS";
             TextoDicaDeEdicao.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
+            BotaoAdicionarSala.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
             PainelDePlanilhasSemSala.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
             TextoEditar.Foreground = Paleta.Pincel(editar ? Paleta.Marca : Paleta.Texto3);
             TextoEditar.FontWeight = editar ? FontWeights.Bold : FontWeights.Normal;

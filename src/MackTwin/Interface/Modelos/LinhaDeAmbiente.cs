@@ -70,6 +70,12 @@ namespace MackTwin.Interface.Modelos
         public string RotuloDeAdicionar => $"+  Adicionar planilha a {Codigo}";
 
         /// <summary>
+        /// Se a sala pode ser removida do cadastro: foi criada à mão e nenhum sensor a anuncia
+        /// (uma sala com sensor voltaria no ciclo seguinte, pelo HOSTNAME).
+        /// </summary>
+        public bool PodeRemoverSala => Ambiente.CadastradaManualmente && Ambiente.Sensores.Count == 0;
+
+        /// <summary>
         /// O que define cartões e gráfico desta sala: última leitura, sensores, janela e Room.
         /// Igual entre dois ciclos = nada a redesenhar.
         /// </summary>
