@@ -344,8 +344,6 @@ namespace MackTwin.Interface
 
             if (linha.Assinatura != _assinaturaExibida)
                 ExibirSala(linha);
-            else
-                TextoResumoDaSala.Text = MontarTextoDoResumo(linha);
         }
 
         private static string MontarTextoDeCasamento(
@@ -387,16 +385,16 @@ namespace MackTwin.Interface
 
             if (linha == null)
             {
-                TextoTituloDaSala.Text = _conjunto == null ? "Selecione uma sala" : "Nenhuma sala reconhecida";
-                TextoResumoDaSala.Text = _conjunto == null
-                    ? "Aguardando a primeira atualização…"
-                    : "Nenhuma sala ainda: ligue \"Editar\" e use \"+ Adicionar sala\", ou cadastre uma planilha " +
-                      "cujos sensores sigam o padrão MMCCT<sala>-<nnn> (ex.: MMCCTLAB001-001). Veja os avisos.";
+                TextoTituloDaSala.Text = _conjunto == null ? "Selecione uma sala" : "Nenhuma sala ainda";
+
+                if (_conjunto != null)
+                    AcrescentarAviso("Nenhuma sala ainda: ligue \"Editar\" e use \"+ Adicionar sala\", ou cadastre uma planilha " +
+                                     "cujos sensores sigam o padrão MMCCT<sala>-<nnn> (ex.: MMCCTLAB001-001).");
+
                 return;
             }
 
             TextoTituloDaSala.Text = linha.Titulo;
-            TextoResumoDaSala.Text = MontarTextoDoResumo(linha);
 
             // (a) cartões ao vivo — um por sensor da sala
             foreach (var sensor in linha.Ambiente.Sensores)
@@ -420,31 +418,6 @@ namespace MackTwin.Interface
             }
 
             // (c) no modelo — os botões da aba usam a seleção corrente; nada a montar aqui.
-        }
-
-        private static string MontarTextoDoResumo(LinhaDeAmbiente linha)
-        {
-            var resumo = linha.Resumo;
-            var cultura = CultureInfo.CurrentCulture;
-
-            if (resumo.UltimaLeitura == null)
-                return "Sem leituras. " + linha.Casamento + ".";
-
-            string temperatura = resumo.Temperatura.TemDados
-                ? string.Format(cultura, "temperatura {0:0.0} °C (média {1:0.0}, mín {2:0.0}, máx {3:0.0})",
-                    resumo.Temperatura.Ultimo, resumo.Temperatura.Media, resumo.Temperatura.Minimo, resumo.Temperatura.Maximo)
-                : "temperatura sem dados";
-
-            string umidade = resumo.Umidade.TemDados
-                ? string.Format(cultura, "umidade {0:0} % (média {1:0}, mín {2:0}, máx {3:0})",
-                    resumo.Umidade.Ultimo, resumo.Umidade.Media, resumo.Umidade.Minimo, resumo.Umidade.Maximo)
-                : "umidade sem dados";
-
-            return string.Format(cultura,
-                "{0}: {1}; {2}. {3} leitura(s) de {4} sensor(es), de {5:dd/MM HH:mm} a {6:dd/MM HH:mm}. {7}.",
-                linha.Classificacao, temperatura, umidade,
-                resumo.TotalDeLeituras, resumo.QuantidadeDeSensores, resumo.Inicio, resumo.Fim,
-                linha.Casamento);
         }
 
         // ── Janela de tempo ──────────────────────────────────────────────

@@ -92,14 +92,19 @@ namespace MackTwin.Dominio
 
         /// <summary>
         /// Título para a interface: o nome (do Room, se casou; senão o do cadastro) e o código;
-        /// só o código quando não há nome.
+        /// só um deles quando não há nome ou quando o nome é o próprio código ("LAB001", não
+        /// "LAB001 — LAB001").
         /// </summary>
         public string Titulo
         {
             get
             {
                 string? nome = !string.IsNullOrWhiteSpace(NomeNoModelo) ? NomeNoModelo : Apelido;
-                return string.IsNullOrWhiteSpace(nome) ? CodigoExibido : $"{nome} — {CodigoExibido}";
+
+                if (string.IsNullOrWhiteSpace(nome) || CodigoDeSala.Normalizar(nome) == Codigo)
+                    return CodigoExibido;
+
+                return $"{nome} — {CodigoExibido}";
             }
         }
 

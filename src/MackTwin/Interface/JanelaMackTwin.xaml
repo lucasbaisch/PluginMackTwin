@@ -178,13 +178,9 @@
             <!-- Sala selecionada: três visualizações -->
             <Border Grid.Column="2" Style="{StaticResource EstiloCartao}" Padding="18,14">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBlock x:Name="TextoTituloDaSala" Text="Selecione uma sala"
-                                   FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource BrushTx}"/>
-                        <TextBlock x:Name="TextoResumoDaSala" Foreground="{StaticResource BrushTx2}"
-                                   TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="A lista à esquerda mostra as salas reconhecidas nas planilhas. Clique numa sala aqui, ou num Room no modelo."/>
-                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Top" x:Name="TextoTituloDaSala" Text="Selecione uma sala"
+                               FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource BrushTx}"
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                     <TabControl x:Name="Abas" BorderThickness="0" Background="Transparent" Padding="0,12,0,0"
                                 ItemContainerStyle="{StaticResource EstiloAba}">
