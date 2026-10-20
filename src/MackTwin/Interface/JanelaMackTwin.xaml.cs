@@ -290,10 +290,8 @@ namespace MackTwin.Interface
                 "{0} sala(s), {1} sensor(es), {2:N0} leitura(s).",
                 conjunto.Ambientes.Count, conjunto.TotalDeSensores, conjunto.TotalDeLeituras);
 
-            TextoCasamento.Text = MontarTextoDeCasamento(conjunto, casados, rooms, tituloDoModelo, erroDeCasamento);
-
             TextoAvisos.Text = string.Join(Environment.NewLine, _avisosIniciais.Concat(conjunto.Avisos));
-            TextoAvisos.ScrollToEnd();
+            AcrescentarAviso(MontarTextoDeCasamento(conjunto, casados, rooms, tituloDoModelo, erroDeCasamento));
 
             // Sensores fora do padrão já vêm nos avisos do agrupador; uma planilha que não
             // alimenta sala alguma não tem onde aparecer na lista, então avisa-se aqui.
