@@ -314,3 +314,79 @@ namespace MackTwin.Configuracao
         public const int LarguraDoIconePequeno = 16;
     }
 }
+
+namespace MackTwin.Configuracao
+{
+    // ── Exportação: vídeo do último dia e folha de impressão ─────────────
+
+    /// <summary>
+    /// Parâmetros do vídeo do último dia (GIF animado + quadros PNG) e da folha de impressão.
+    /// </summary>
+    /// <remarks>
+    /// <b>Por que GIF.</b> A API do Revit exporta imagens, não vídeo, e a máquina não tem um
+    /// codificador externo (ffmpeg) de que o plug-in possa depender. Um GIF animado abre em
+    /// qualquer navegador e no PowerPoint, e os quadros PNG ficam ao lado para quem quiser
+    /// montar um MP4 depois. Escolha do usuário em 20/10/2026.
+    ///
+    /// <b>Passo de 1 h, 24 quadros.</b> O estado de uma sala às 14 h é o da última leitura até
+    /// 14 h — desde que não mais velha que a tolerância, senão a sala fica "sem dados" naquele
+    /// quadro, que é a informação honesta sobre um sensor que parou.
+    /// </remarks>
+    public static class ConfiguracaoDeExportacao
+    {
+        /// <summary>Quantos quadros o vídeo tem (um por hora das últimas 24 h).</summary>
+        public const int QuantidadeDeQuadros = 24;
+
+        /// <summary>Intervalo entre quadros, em horas.</summary>
+        public const int PassoEmHoras = 1;
+
+        /// <summary>
+        /// Idade máxima da leitura que ainda representa o estado da sala num quadro, em minutos.
+        /// Igual ao passo: cada quadro mostra o que aconteceu na hora que o precede.
+        /// </summary>
+        public const int ToleranciaDoQuadroEmMinutos = 60;
+
+        /// <summary>Largura de cada quadro exportado, em pixels (a altura segue a proporção da vista).</summary>
+        public const int LarguraDoQuadroEmPixels = 1024;
+
+        /// <summary>Tempo de cada quadro no GIF, em centésimos de segundo.</summary>
+        public const int AtrasoEntreQuadrosEmCentesimos = 60;
+
+        /// <summary>Tempo do último quadro, mais longo, para o olho registrar o estado atual antes do laço.</summary>
+        public const int AtrasoDoUltimoQuadroEmCentesimos = 200;
+
+        /// <summary>Nome do GIF gravado na pasta da exportação.</summary>
+        public const string NomeDoGif = "MackTwin_ultimo_dia.gif";
+
+        /// <summary>Subpasta de Documentos onde cada exportação ganha a sua pasta datada.</summary>
+        public const string NomeDaPastaDeSaida = "MackTwin";
+
+        /// <summary>Pasta raiz das exportações: <c>Documentos\MackTwin</c>.</summary>
+        public static string PastaDeSaida => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), NomeDaPastaDeSaida);
+
+        /// <summary>Transação que grava o estado de um quadro nos Rooms.</summary>
+        public const string NomeDaTransacaoDeQuadro = "MackTwin — Quadro do vídeo do último dia";
+
+        /// <summary>Transação que devolve aos Rooms o estado atual depois do vídeo.</summary>
+        public const string NomeDaTransacaoDeRestauracao = "MackTwin — Restaurar estado atual";
+
+        /// <summary>Transação que monta as plantas e a folha de impressão.</summary>
+        public const string NomeDaTransacaoDeFolha = "MackTwin — Gerar folha de impressão";
+
+        /// <summary>Prefixo do número das folhas geradas (MT-01, MT-02…).</summary>
+        public const string PrefixoDoNumeroDaFolha = "MT-";
+
+        /// <summary>Fração da largura da folha ocupada por cada uma das duas plantas.</summary>
+        public const double FracaoDaLarguraPorPlanta = 0.44;
+
+        /// <summary>Fração da altura da folha disponível para as plantas (o resto é cabeçalho e carimbo).</summary>
+        public const double FracaoDaAlturaParaPlantas = 0.68;
+
+        /// <summary>Largura de uma folha A3 paisagem, em pés — usada quando o projeto não tem carimbo.</summary>
+        public const double LarguraA3EmPes = 420.0 / 304.8;
+
+        /// <summary>Altura de uma folha A3 paisagem, em pés.</summary>
+        public const double AlturaA3EmPes = 297.0 / 304.8;
+    }
+}

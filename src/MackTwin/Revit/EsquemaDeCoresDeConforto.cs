@@ -86,6 +86,19 @@ namespace MackTwin.Revit
             };
         }
 
+        /// <summary>Título impresso pela legenda de cores da grandeza.</summary>
+        public static string TituloDaLegenda(GrandezaDeConforto grandeza)
+        {
+            return grandeza switch
+            {
+                GrandezaDeConforto.Temperatura =>
+                    $"Temperatura — conforto {FaixasDeConfortoAmbiental.TemperaturaMinima:0}–{FaixasDeConfortoAmbiental.TemperaturaMaxima:0} °C",
+                GrandezaDeConforto.Umidade =>
+                    $"Umidade relativa — conforto {FaixasDeConfortoAmbiental.UmidadeMinima:0}–{FaixasDeConfortoAmbiental.UmidadeMaxima:0} %",
+                _ => "Conforto ambiental (temperatura e umidade)",
+            };
+        }
+
         // ── Parâmetros ───────────────────────────────────────────────────
 
         /// <summary>Garante os três parâmetros vinculados a Ambientes e devolve os seus ElementIds.</summary>
@@ -244,6 +257,12 @@ namespace MackTwin.Revit
 
             if (esquema.ParameterDefinition != idDoParametro)
                 esquema.ParameterDefinition = idDoParametro;
+
+            // O título é o que a legenda nativa (ColorFillLegend) imprime no topo.
+            string titulo = TituloDaLegenda(grandeza);
+
+            if (!string.Equals(esquema.Title, titulo, StringComparison.Ordinal))
+                esquema.Title = titulo;
 
             var entradas = MontarEntradas(solido);
 

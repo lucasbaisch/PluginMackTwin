@@ -11,12 +11,12 @@ namespace MackTwin.Interface
 {
     /// <summary>
     /// A parte da janela que toca o modelo: a seleção vinda do Revit e as ações da aba
-    /// "No modelo" (pintar, limpar, vista 3D, localizar, diagnóstico).
+    /// "Modelo" (pintar, limpar, vista 3D, localizar, diagnóstico, vídeo do último dia, folha).
     /// </summary>
     /// <remarks>
     /// Cada ação entra no Revit pelo <see cref="DespachanteDoRevit"/>, que a executa em contexto
     /// válido e na thread da interface — por isso as mensagens podem ir direto para os controles.
-    /// A classificação usada ao pintar é a que a lista já calculou (<see cref="ClassificadorAtual"/>),
+    /// O resumo usado ao pintar e exportar é o que a lista já calculou (<see cref="ResumidorAtual"/>),
     /// sem resumir as salas de novo.
     /// </remarks>
     public partial class JanelaMackTwin
@@ -222,6 +222,140 @@ namespace MackTwin.Interface
 
                 SeletorDeAmbiente.MostrarNoModelo(uiDocumento, id);
             });
+        }
+
+        // ── Exportação ───────────────────────────────────────────────────
+
+        private void BotaoExportarVideo_Click(object sender, RoutedEventArgs evento)
+        {
+            var conjunto = _conjunto;
+
+            if (conjunto == null)
+            {
+                Informar("Aguarde a primeira atualização.");
+                return;
+            }
+
+            if (!conjunto.Ambientes.Any(ambiente => ambiente.CasadoComOModelo))
+            {
+                Informar("Nenhuma sala das planilhas casou com um Room do modelo; o vídeo sairia todo cinza. Case as salas antes.");
+                return;
+            }
+
+            var resumir = ResumidorAtual();
+            var agora = DateTime.Now;
+
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                {
+                    Informar("Abra um modelo para exportar o vídeo.");
+                    return;
+                }
+
+                ExibirOcupado(true);
+
+                try
+                {
+                    var exportador = new ExportadorDeVideoDoDia(uiDocumento);
+                    var resultado = exportador.Exportar(conjunto, resumir, agora, MostrarProgresso);
+
+                    uiDocumento.RefreshActiveView();
+
+                    string observacao = resultado.Aviso == null ? string.Empty : " " + resultado.Aviso;
+
+                    Informar($"Vídeo do último dia exportado: {resultado.Quadros} quadros de {resultado.Inicio:dd/MM HH:mm} a " +
+                             $"{resultado.Fim:dd/MM HH:mm} (passo de 1 h) em \"{resultado.Pasta}\" — GIF animado e quadros PNG. " +
+                             $"Câmera: vista \"{resultado.Vista.Name}\".{observacao}");
+
+                    AbrirPasta(resultado.Pasta);
+                }
+                finally
+                {
+                    ExibirOcupado(false);
+                }
+            });
+        }
+
+        private void BotaoGerarFolha_Click(object sender, RoutedEventArgs evento)
+        {
+            var conjunto = _conjunto;
+
+            if (conjunto == null)
+            {
+                Informar("Aguarde a primeira atualização.");
+                return;
+            }
+
+            var resumir = ResumidorAtual();
+            var agora = DateTime.Now;
+
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                {
+                    Informar("Abra um modelo para gerar a folha.");
+                    return;
+                }
+
+                ExibirOcupado(true);
+
+                try
+                {
+                    MostrarProgresso("Montando as plantas de temperatura e umidade e a folha…");
+
+                    var gerador = new GeradorDeFolhaDeImpressao(uiDocumento.Document);
+                    var resultado = gerador.Gerar(conjunto, resumir, agora);
+
+                    if (resultado.Folhas.Count == 0)
+                    {
+                        Informar(resultado.Aviso ?? "Nenhuma folha foi gerada.");
+                        return;
+                    }
+
+                    uiDocumento.ActiveView = resultado.Folhas[0];
+                    uiDocumento.RefreshActiveView();
+
+                    string numeros = string.Join(", ", resultado.Folhas.Select(folha => folha.SheetNumber));
+                    string observacao = resultado.Aviso == null ? string.Empty : " " + resultado.Aviso;
+
+                    Informar($"{resultado.Folhas.Count} folha(s) gerada(s) ({numeros}) com {resultado.Plantas} planta(s): temperatura à esquerda, " +
+                             $"umidade à direita, cada uma com a sua legenda. Imprima por Arquivo › Imprimir ou exporte em PDF.{observacao}");
+                }
+                finally
+                {
+                    ExibirOcupado(false);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Atualiza o status e força o WPF a desenhar: a exportação roda na thread da interface,
+        /// dentro do evento externo, e sem isso a janela congelaria sem mostrar o andamento.
+        /// </summary>
+        private void MostrarProgresso(string mensagem)
+        {
+            TextoStatus.Text = mensagem;
+            Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+        }
+
+        private void AbrirPasta(string pasta)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{pasta}\"")
+                {
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception excecao)
+            {
+                AcrescentarAviso("Não foi possível abrir a pasta: " + excecao.Message);
+            }
         }
 
         private void BotaoDiagnostico_Click(object sender, RoutedEventArgs evento)

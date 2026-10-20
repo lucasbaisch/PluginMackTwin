@@ -2,8 +2,11 @@
 
 Add-in do Autodesk Revit 2026 (C# / .NET 8 / WPF) que mostra, sala por sala, as leituras dos
 sensores instalados no CCT Mackenzie Campinas. Ao clicar numa sala no modelo, o painel exibe os
-dados de todos os sensores daquela sala em três visualizações: **cartões ao vivo**, **série
-temporal** e **a sala pintada no próprio modelo** pela faixa de conforto.
+dados de todos os sensores daquela sala em três visualizações: **cartões ao vivo**, **gráficos**
+e **a sala pintada no próprio modelo** pela faixa de conforto. A aba Modelo também exporta o
+**vídeo do último dia** (a vista 3D de conforto a cada hora das últimas 24 h, como o estudo solar
+nativo — GIF animado + quadros PNG em `Documentos\MackTwin`) e gera a **folha para impressão**
+(uma por nível: plantas de temperatura e de umidade lado a lado, cada uma com a sua legenda).
 
 Universidade Presbiteriana Mackenzie / Limiar.
 
@@ -31,8 +34,9 @@ src/MackTwin/                 projeto do add-in (MackTwin.csproj → MackTwin.dl
   Dominio/                    Sensor, Leitura, Ambiente, ResumoDoAmbiente, CodigoDeSala
   Parsing/                    LeitorDePlanilhaGoogle, AnalisadorDeHostname, UtilitariosDeCsv
   Processamento/              ClassificadorDeConforto, resumo por sala, agrupamento, monitor
-  Revit/                      despachante (ExternalEvent), casamento com Rooms, pintura, vista 3D
-  Interface/                  janela WPF modeless, cartões, série temporal, cadastro de planilha
+  Revit/                      despachante (ExternalEvent), casamento com Rooms, pintura, vista 3D, vídeo, folha
+  Exportacao/                 linha do tempo do vídeo, carimbo dos quadros, codificador de GIF animado
+  Interface/                  janela WPF modeless, cartões, gráficos, cadastro de planilha
   Verificacao/                asserções automáticas (botão "Verificar modelo")
   Assets/                     logos e ícone
 Installer/                    MSI (WiX v5) — ver Installer/README.md

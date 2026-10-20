@@ -232,10 +232,20 @@
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoDiagnostico_Click"/>
                                 </WrapPanel>
 
+                                <TextBlock Text="EXPORTAÇÃO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
+                                <WrapPanel>
+                                    <Button x:Name="BotaoExportarVideo" Content="Exportar vídeo do último dia"
+                                            ToolTip="Como o estudo solar nativo: a vista 3D de conforto fotografada a cada hora das últimas 24 h — GIF animado + quadros PNG em Documentos\MackTwin"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoExportarVideo_Click"/>
+                                    <Button x:Name="BotaoGerarFolha" Content="Gerar folha para impressão"
+                                            ToolTip="Uma folha por nível: plantas de temperatura e de umidade lado a lado, cada uma com a sua legenda de cores"
+                                            Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoGerarFolha_Click"/>
+                                </WrapPanel>
+
                                 <TextBlock Text="LEGENDA" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,8"/>
                                 <StackPanel x:Name="PainelDeLegenda" Orientation="Horizontal"/>
                                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTx3}" FontSize="11" Margin="0,14,0,0"
-                                           Text="A cor é da ÚLTIMA leitura no período escolhido em &quot;Gráficos&quot;. A pintura usa o mecanismo nativo do Revit: o estado de cada sala vai para o parâmetro de Room &quot;MackTwin Conforto&quot; e o esquema de cores &quot;MackTwin Conforto&quot; é aplicado à vista ativa; &quot;Limpar pintura&quot; tira o esquema da vista. Em 3D o Revit só desenha Rooms com o cálculo de volumes ligado — &quot;Gerar vista 3D&quot; cuida disso."/>
+                                           Text="A cor é da ÚLTIMA leitura no período escolhido em &quot;Gráficos&quot;. A pintura usa o mecanismo nativo do Revit: o estado de cada sala vai para os parâmetros de Room &quot;MackTwin Conforto&quot;, &quot;MackTwin Temperatura&quot; e &quot;MackTwin Umidade&quot;, e o esquema de cores da grandeza é aplicado à vista; &quot;Limpar pintura&quot; tira o esquema da vista ativa. Em 3D o Revit só desenha Rooms com o cálculo de volumes ligado — &quot;Gerar vista 3D&quot; cuida disso. O vídeo mostra o estado que cada sala tinha a cada hora (leitura com até 1 h de idade); a folha usa o estado atual."/>
                             </StackPanel>
                         </TabItem>
                     </TabControl>

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
+using MackTwin.Exportacao;
 using MackTwin.Parsing;
 using MackTwin.Processamento;
 
@@ -103,6 +104,7 @@ namespace MackTwin.Verificacao
             VerificarResumo(resultados);
             VerificarResumoNoInstante(resultados);
             VerificarAgregacao(resultados);
+            VerificarExportacao(resultados);
             VerificarCores(resultados);
             VerificarPlanilhasPorSala(resultados);
 
@@ -557,6 +559,94 @@ namespace MackTwin.Verificacao
                     asSeis.ClassificacaoDe(GrandezaDeConforto.Temperatura) == ClassificacaoDeConforto.Confortavel
                     && asSeis.ClassificacaoDe(GrandezaDeConforto.Umidade) == ClassificacaoDeConforto.Confortavel
                     && asSeis.ClassificacaoDe(GrandezaDeConforto.Geral) == asSeis.ClassificacaoGeral);
+        }
+
+        // ── Exportação: linha do tempo do vídeo e GIF ────────────────────
+
+        private static void VerificarExportacao(List<ResultadoDeVerificacao> resultados)
+        {
+            var agora = new DateTime(2026, 10, 20, 14, 37, 12);
+            var instantes = LinhaDoTempoDoVideo.Instantes(agora);
+
+            Afirmar(resultados, "Vídeo: 24 quadros, do mais antigo ao mais recente",
+                    instantes.Count == 24 && instantes[0] < instantes[23]);
+
+            Afirmar(resultados, "Vídeo: o último quadro é a hora cheia anterior a agora (14:00 para 14:37)",
+                    instantes[23] == new DateTime(2026, 10, 20, 14, 0, 0));
+
+            Afirmar(resultados, "Vídeo: o primeiro quadro é 23 h antes do último (15:00 do dia anterior)",
+                    instantes[0] == new DateTime(2026, 10, 19, 15, 0, 0));
+
+            bool passoDeUmaHora = true;
+
+            for (int indice = 1; indice < instantes.Count; indice++)
+                passoDeUmaHora &= instantes[indice] - instantes[indice - 1] == TimeSpan.FromHours(1);
+
+            Afirmar(resultados, "Vídeo: passo constante de 1 h entre quadros", passoDeUmaHora);
+
+            Afirmar(resultados, "GIF: branco e preto saem exatos da paleta uniforme",
+                    CodificadorDeGif.CorDoIndice(CodificadorDeGif.IndiceDaCor(255, 255, 255)) == (255, 255, 255)
+                    && CodificadorDeGif.CorDoIndice(CodificadorDeGif.IndiceDaCor(0, 0, 0)) == (0, 0, 0));
+
+            var (r, g, b) = CoresDeConforto.ParaRgb(CoresDeConforto.Confortavel);
+
+            Afirmar(resultados, "GIF: a cor de \"confortável\" cai na posição reservada e volta exata",
+                    CodificadorDeGif.IndiceDaCor(r, g, b) >= 252
+                    && CodificadorDeGif.CorDoIndice(CodificadorDeGif.IndiceDaCor(r, g, b)) == (r, g, b));
+
+            var quadroA = new QuadroDeGif { Largura = 3, Altura = 2, Indices = new byte[] { 0, 0, 0, 255, 255, 255 }, AtrasoEmCentesimos = 60 };
+            var quadroB = new QuadroDeGif { Largura = 3, Altura = 2, Indices = new byte[] { 7, 7, 7, 7, 7, 7 }, AtrasoEmCentesimos = 200 };
+            byte[] gif;
+
+            using (var memoria = new System.IO.MemoryStream())
+            {
+                CodificadorDeGif.Gravar(new[] { quadroA, quadroB }, memoria);
+                gif = memoria.ToArray();
+            }
+
+            string cabecalho = System.Text.Encoding.ASCII.GetString(gif, 0, 6);
+            string tudo = System.Text.Encoding.Latin1.GetString(gif);
+
+            Afirmar(resultados, "GIF: começa em GIF89a, termina no marcador 0x3B e tem 3×2 pixels no descritor lógico",
+                    cabecalho == "GIF89a" && gif[gif.Length - 1] == 0x3B && gif[6] == 3 && gif[7] == 0 && gif[8] == 2 && gif[9] == 0);
+
+            Afirmar(resultados, "GIF: traz a extensão NETSCAPE2.0 de laço infinito e uma extensão de controle gráfico por quadro",
+                    tudo.Contains("NETSCAPE2.0") && ContarOcorrencias(gif, new byte[] { 0x21, 0xF9, 0x04 }) == 2);
+
+            Afirmar(resultados, "GIF: o tempo do último quadro (200 centésimos) está gravado em little-endian",
+                    ContarOcorrencias(gif, new byte[] { 0x21, 0xF9, 0x04, 0x04, 200, 0 }) == 1);
+
+            bool tamanhosDiferentesRecusados = false;
+
+            try
+            {
+                using var memoria = new System.IO.MemoryStream();
+                CodificadorDeGif.Gravar(new[] { quadroA, new QuadroDeGif { Largura = 2, Altura = 2, Indices = new byte[4] } }, memoria);
+            }
+            catch (ArgumentException)
+            {
+                tamanhosDiferentesRecusados = true;
+            }
+
+            Afirmar(resultados, "GIF: quadros de tamanhos diferentes são recusados", tamanhosDiferentesRecusados);
+        }
+
+        private static int ContarOcorrencias(byte[] dados, byte[] padrao)
+        {
+            int ocorrencias = 0;
+
+            for (int inicio = 0; inicio + padrao.Length <= dados.Length; inicio++)
+            {
+                bool igual = true;
+
+                for (int deslocamento = 0; deslocamento < padrao.Length && igual; deslocamento++)
+                    igual = dados[inicio + deslocamento] == padrao[deslocamento];
+
+                if (igual)
+                    ocorrencias++;
+            }
+
+            return ocorrencias;
         }
 
         // ── Agregação da série para períodos longos ──────────────────────
