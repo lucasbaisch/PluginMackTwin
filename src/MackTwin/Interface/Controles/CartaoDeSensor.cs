@@ -10,8 +10,9 @@ using MackTwin.Processamento;
 namespace MackTwin.Interface.Controles
 {
     /// <summary>
-    /// Cartão "ao vivo" de um sensor: a última temperatura e a última umidade, cada uma na cor
-    /// da sua faixa, com a hora da leitura.
+    /// Cartão "ao vivo" de um sensor: identificação em quatro linhas (dispositivo, HOSTNAME,
+    /// MAC, última leitura) e, abaixo, a última temperatura e a última umidade, cada uma na cor
+    /// da sua faixa.
     /// </summary>
     /// <remarks>
     /// Montado em código, sem XAML próprio, porque é um bloco pequeno que nasce e morre quando
@@ -46,6 +47,22 @@ namespace MackTwin.Interface.Controles
                 Text = sensor.Hostname,
                 FontSize = 10.5,
                 Foreground = PincelDoTextoFraco,
+            });
+
+            conteudo.Children.Add(new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(sensor.EnderecoMac) ? "MAC —" : $"MAC {sensor.EnderecoMac}",
+                FontSize = 10.5,
+                Foreground = PincelDoTextoFraco,
+            });
+
+            conteudo.Children.Add(new TextBlock
+            {
+                Text = ultima == null
+                    ? "Sem leituras"
+                    : string.Format(CultureInfo.CurrentCulture, "Última leitura {0:dd/MM/yyyy HH:mm:ss}", ultima.Timestamp),
+                FontSize = 10.5,
+                Foreground = PincelDoTextoFraco,
                 Margin = new Thickness(0, 0, 0, 10),
             });
 
@@ -68,22 +85,6 @@ namespace MackTwin.Interface.Controles
             grandezas.Children.Add(blocoTemperatura);
             grandezas.Children.Add(blocoUmidade);
             conteudo.Children.Add(grandezas);
-
-            string rodape = ultima == null
-                ? "Sem leituras"
-                : string.Format(CultureInfo.CurrentCulture, "Última leitura {0:dd/MM/yyyy HH:mm:ss}", ultima.Timestamp);
-
-            if (!string.IsNullOrWhiteSpace(sensor.EnderecoMac))
-                rodape += $"  ·  MAC {sensor.EnderecoMac}";
-
-            conteudo.Children.Add(new TextBlock
-            {
-                Text = rodape,
-                FontSize = 10.5,
-                Foreground = PincelDoTextoFraco,
-                Margin = new Thickness(0, 10, 0, 0),
-                TextWrapping = TextWrapping.Wrap,
-            });
 
             Content = new Border
             {

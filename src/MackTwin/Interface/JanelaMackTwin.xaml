@@ -190,7 +190,7 @@
                             </ScrollViewer>
                         </TabItem>
 
-                        <TabItem Header="Série temporal">
+                        <TabItem Header="Gráficos">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,4,0,10">
                                     <TextBlock Text="Janela:" VerticalAlignment="Center"
@@ -223,7 +223,7 @@
                                 <TextBlock Text="LEGENDA" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,10,0,8"/>
                                 <StackPanel x:Name="PainelDeLegenda" Orientation="Horizontal"/>
                                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTx3}" FontSize="11" Margin="0,14,0,0"
-                                           Text="A cor é da ÚLTIMA leitura, na janela escolhida em &quot;Série temporal&quot;. A pintura usa o mecanismo nativo do Revit: o estado de cada sala vai para o parâmetro de Room &quot;MackTwin Conforto&quot; e o esquema de cores &quot;MackTwin Conforto&quot; é aplicado à vista ativa; &quot;Limpar pintura&quot; tira o esquema da vista. Em 3D o Revit só desenha Rooms com o cálculo de volumes ligado — &quot;Gerar vista 3D&quot; cuida disso."/>
+                                           Text="A cor é da ÚLTIMA leitura, na janela escolhida em &quot;Gráficos&quot;. A pintura usa o mecanismo nativo do Revit: o estado de cada sala vai para o parâmetro de Room &quot;MackTwin Conforto&quot; e o esquema de cores &quot;MackTwin Conforto&quot; é aplicado à vista ativa; &quot;Limpar pintura&quot; tira o esquema da vista. Em 3D o Revit só desenha Rooms com o cálculo de volumes ligado — &quot;Gerar vista 3D&quot; cuida disso."/>
                             </StackPanel>
                         </TabItem>
                     </TabControl>
