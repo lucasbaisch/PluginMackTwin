@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using MackTwin.Configuracao;
@@ -99,32 +100,6 @@ namespace MackTwin.Interface
             await AtualizarAsync();
         }
 
-        /// <summary>Planilha sem sala: passa a pertencer à sala selecionada na lista.</summary>
-        private void AtribuirPlanilha_Click(object sender, RoutedEventArgs evento)
-        {
-            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
-                return;
-
-            if (ListaDeAmbientes.SelectedItem is not LinhaDeAmbiente linha)
-            {
-                Informar("Selecione na lista a sala à qual a planilha pertence e clique de novo em \"atribuir\".");
-                return;
-            }
-
-            planilha.Sala = linha.Codigo;
-
-            try
-            {
-                _registro.Salvar();
-            }
-            catch (Exception excecao)
-            {
-                AcrescentarAviso("Não foi possível gravar o cadastro de planilhas: " + excecao.Message);
-            }
-
-            Informar($"Planilha \"{planilha.Nome}\" atribuída à sala {linha.Codigo}.");
-            ReexibirConjunto();
-        }
 
         // ── Salas cadastradas à mão ──────────────────────────────────────
 
@@ -157,22 +132,21 @@ namespace MackTwin.Interface
             if (Contexto<LinhaDeAmbiente>(sender) is not { } linha || !linha.PodeRemoverSala)
                 return;
 
+            int planilhasDaSala = _registro.Planilhas.Count(planilha => planilha.Sala == linha.Codigo);
+
             var resposta = MessageBox.Show(this,
-                $"Remover a sala {linha.Codigo} do cadastro? As planilhas cadastradas nela continuam no cadastro, sem sala.",
+                $"Remover a sala {linha.Codigo} do cadastro?" +
+                (planilhasDaSala > 0 ? $" A(s) {planilhasDaSala} planilha(s) cadastrada(s) nela será(ão) removida(s) também." : string.Empty),
                 "Remover sala", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (resposta != MessageBoxResult.Yes)
                 return;
 
-            foreach (var planilha in _registro.Planilhas)
-            {
-                if (planilha.Sala == linha.Codigo)
-                    planilha.Sala = null;
-            }
-
             try
             {
+                _registro.Planilhas.RemoveAll(planilha => planilha.Sala == linha.Codigo);
                 _registro.RemoverSala(linha.Codigo);
+                _registro.Salvar();
             }
             catch (Exception excecao)
             {

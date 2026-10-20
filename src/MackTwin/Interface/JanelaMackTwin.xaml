@@ -99,43 +99,6 @@
                                 Click="BotaoAdicionarSala_Click"/>
                     </StackPanel>
 
-                    <Expander DockPanel.Dock="Bottom" x:Name="ExpansorSemSala" Header="Sem sala" Margin="0,8,0,0"
-                              Foreground="{StaticResource BrushTx2}">
-                        <StackPanel Margin="0,6,0,0">
-                            <TextBlock Text="SENSORES" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,0,0,4"/>
-                            <ItemsControl x:Name="ListaDeSensoresSemSala">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource BrushTx3}"
-                                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <StackPanel x:Name="PainelDePlanilhasSemSala" Visibility="Collapsed" Margin="0,8,0,0">
-                                <TextBlock Text="PLANILHAS" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,0,0,4"/>
-                                <ItemsControl x:Name="ListaDePlanilhasSemSala">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,0,0,6">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Nome}" FontSize="11" Foreground="{StaticResource BrushTx2}"
-                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Url}" VerticalAlignment="Center"/>
-                                                <Button Grid.Column="1" Content="atribuir à sala selecionada" Style="{StaticResource EstiloBotaoLink}"
-                                                        Margin="8,0,8,0" Tag="{Binding}" Click="AtribuirPlanilha_Click"/>
-                                                <Button Grid.Column="2" Content="&#x2715;" Style="{StaticResource EstiloBotaoIcone}"
-                                                        ToolTip="Remover do cadastro" Tag="{Binding}" Click="RemoverPlanilha_Click"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </StackPanel>
-                    </Expander>
-
                     <ListBox x:Name="ListaDeAmbientes" BorderThickness="0" Background="Transparent"
                              ItemContainerStyle="{StaticResource EstiloItemDeSala}"
                              SelectionChanged="ListaDeAmbientes_SelectionChanged"

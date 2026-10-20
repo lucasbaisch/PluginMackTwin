@@ -141,12 +141,8 @@ namespace MackTwin.Interface
             TextoTituloDeSalas.Text = editar ? "SALAS  ·  MODO EDIÇÃO" : "SALAS";
             TextoDicaDeEdicao.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
             BotaoAdicionarSala.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
-            PainelDePlanilhasSemSala.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
             TextoEditar.Foreground = Paleta.Pincel(editar ? Paleta.Marca : Paleta.Texto3);
             TextoEditar.FontWeight = editar ? FontWeights.Bold : FontWeights.Normal;
-
-            if (editar && _registro.PlanilhasSemSala(_conjunto?.SalasPorPlanilha).Count > 0)
-                ExpansorSemSala.IsExpanded = true;
 
             ReexibirConjunto();
         }
@@ -299,9 +295,6 @@ namespace MackTwin.Interface
                     _linhas.RemoveAt(indice);
             }
 
-            ListaDeSensoresSemSala.ItemsSource = conjunto.SensoresSemSala.Select(DescreverSensorSemSala).ToList();
-            ListaDePlanilhasSemSala.ItemsSource = _registro.PlanilhasSemSala(conjunto.SalasPorPlanilha);
-
             TextoStatus.Text = string.Format(CultureInfo.CurrentCulture,
                 "Atualizado às {0:HH:mm:ss}{1}",
                 conjunto.AtualizadoEm,
@@ -318,7 +311,19 @@ namespace MackTwin.Interface
             TextoAvisos.Text = string.Join(Environment.NewLine, _avisosIniciais.Concat(conjunto.Avisos));
             TextoAvisos.ScrollToEnd();
 
-            if (conjunto.PlanilhasComFalha > 0)
+            // Sensores fora do padrão já vêm nos avisos do agrupador; uma planilha que não
+            // alimenta sala alguma não tem onde aparecer na lista, então avisa-se aqui.
+            var planilhasOrfas = _registro.PlanilhasSemSala(conjunto.SalasPorPlanilha);
+
+            if (planilhasOrfas.Count > 0)
+            {
+                AcrescentarAviso(
+                    "Planilha(s) sem sala (nenhum HOSTNAME no padrão, ou download com falha): " +
+                    string.Join(", ", planilhasOrfas.Select(p => $"\"{p.Nome}\"")) +
+                    ". Ligue \"Editar\" e cadastre-a(s) de novo a partir da sala certa.");
+            }
+
+            if (conjunto.PlanilhasComFalha > 0 || planilhasOrfas.Count > 0 || conjunto.SensoresSemSala.Count > 0)
                 ExpansorDeAvisos.IsExpanded = true;
 
             ExibirSalaSeMudou();
@@ -367,14 +372,6 @@ namespace MackTwin.Interface
             return texto;
         }
 
-        private static string DescreverSensorSemSala(Sensor sensor)
-        {
-            return sensor.UltimaLeitura == null
-                ? $"{sensor.Hostname} — sem leituras"
-                : string.Format(CultureInfo.CurrentCulture, "{0} — última {1:dd/MM HH:mm}",
-                    sensor.Hostname, sensor.UltimaLeitura.Timestamp);
-        }
-
         // ── Sala selecionada: as três visualizações ──────────────────────
 
         private void ListaDeAmbientes_SelectionChanged(object sender, SelectionChangedEventArgs evento)
@@ -393,8 +390,8 @@ namespace MackTwin.Interface
                 TextoTituloDaSala.Text = _conjunto == null ? "Selecione uma sala" : "Nenhuma sala reconhecida";
                 TextoResumoDaSala.Text = _conjunto == null
                     ? "Aguardando a primeira atualização…"
-                    : "Nenhum HOSTNAME das planilhas segue o padrão de sala (ex.: MMCCTLAB001-001). " +
-                      "Veja \"Sem sala\".";
+                    : "Nenhuma sala ainda: ligue \"Editar\" e use \"+ Adicionar sala\", ou cadastre uma planilha " +
+                      "cujos sensores sigam o padrão MMCCT<sala>-<nnn> (ex.: MMCCTLAB001-001). Veja os avisos.";
                 return;
             }
 
