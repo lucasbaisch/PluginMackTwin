@@ -8,9 +8,7 @@
   relativo a essa pasta — por isso o prefixo "MackTwin\".
 
   O AddInId identifica o addin para o Revit e NÃO deve ser regenerado entre
-  versões: trocá-lo faz o Revit tratar a nova versão como outro plugin. O valor
-  abaixo é próprio do MackTwin (distinto do projeto de origem), de modo que os
-  dois plug-ins podem coexistir na mesma instalação do Revit.
+  versões: trocá-lo faz o Revit tratar a nova versão como outro plugin.
 
   Há só uma entrada, do tipo Application: é ela que constrói a aba e o botão
   (ver AplicacaoRibbonMackTwin). Uma entrada Type="Command" adicional não cria

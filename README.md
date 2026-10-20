@@ -5,7 +5,7 @@ sensores instalados no CCT Mackenzie Campinas. Ao clicar numa sala no modelo, o 
 dados de todos os sensores daquela sala em três visualizações: **cartões ao vivo**, **série
 temporal** e **a sala pintada no próprio modelo** pela faixa de conforto.
 
-Projeto da rede DASMind — Universidade Presbiteriana Mackenzie / Limiar.
+Universidade Presbiteriana Mackenzie / Limiar.
 
 ## Como funciona
 

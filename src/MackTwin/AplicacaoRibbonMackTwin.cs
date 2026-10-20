@@ -162,7 +162,7 @@ namespace MackTwin
         /// Carrega o ícone do botão, já decodificado na largura final.
         /// </summary>
         /// <remarks>
-        /// Mesma cascata do hitpoint.rfa, e pelo mesmo motivo:
+        /// Duas origens possíveis, nesta ordem:
         /// 1. arquivo em <c>Assets\icone-macktwin.png</c> ao lado do DLL — o caso da instalação
         ///    pelo MSI;
         /// 2. recurso embutido no assembly — o caso em que a pasta <c>Assets\</c> não

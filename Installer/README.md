@@ -56,8 +56,7 @@ por lá**, então a aba não aparece no desenvolvimento, só depois de instalar 
 
 Suba `Version` no `Package.wxs` para que a versão apareça corretamente em Programas e Recursos.
 Não mexa em `UpgradeCode` (é o que liga uma versão à anterior) nem no `AddInId` do `.addin` (é a
-identidade do add-in para o Revit). Ambos são próprios do MackTwin e distintos dos do projeto de
-origem, de modo que os dois plug-ins podem coexistir na mesma máquina.
+identidade do add-in para o Revit).
 
 Para **iterar** não é preciso subir nada: `AllowSameVersionUpgrades="yes"` faz o instalador
 substituir uma instalação de mesma versão.
