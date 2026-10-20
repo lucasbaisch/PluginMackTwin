@@ -250,11 +250,15 @@ namespace MackTwin.Interface
             ListaDePlanilhasSemSala.ItemsSource = _registro.PlanilhasSemSala(conjunto.SalasPorPlanilha);
 
             TextoStatus.Text = string.Format(CultureInfo.CurrentCulture,
-                "Atualizado às {0:HH:mm:ss} — {1} sala(s), {2} sensor(es), {3:N0} leitura(s).{4}",
-                conjunto.AtualizadoEm, conjunto.Ambientes.Count, conjunto.TotalDeSensores, conjunto.TotalDeLeituras,
+                "Atualizado às {0:HH:mm:ss}{1}",
+                conjunto.AtualizadoEm,
                 conjunto.PlanilhasComFalha > 0
-                    ? $" {conjunto.PlanilhasComFalha} planilha(s) falharam — veja os avisos."
+                    ? $" — {conjunto.PlanilhasComFalha} planilha(s) falharam, veja os avisos."
                     : string.Empty);
+
+            TextoResumoDoCiclo.Text = string.Format(CultureInfo.CurrentCulture,
+                "{0} sala(s), {1} sensor(es), {2:N0} leitura(s).",
+                conjunto.Ambientes.Count, conjunto.TotalDeSensores, conjunto.TotalDeLeituras);
 
             TextoCasamento.Text = MontarTextoDeCasamento(conjunto, casados, rooms, tituloDoModelo, erroDeCasamento);
 
