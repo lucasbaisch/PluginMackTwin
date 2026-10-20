@@ -26,35 +26,37 @@ namespace MackTwin.Configuracao
         /// </summary>
         /// <remarks>
         /// É uma marca de CADASTRO, não um filtro: as leituras continuam sendo distribuídas pela
-        /// sala codificada em cada HOSTNAME. Uma planilha marcada como LAB001 que traga um sensor
-        /// MMCCTLAB002-001 alimenta LAB002 normalmente.
+        /// sala que cada HOSTNAME indica (<see cref="Processamento.ResolvedorDeSala"/>).
         /// </remarks>
         public string? Sala { get; set; }
 
         public override string ToString() => Nome;
     }
 
-    /// <summary>Uma sala cadastrada à mão, antes de (ou sem) qualquer sensor anunciá-la.</summary>
+    /// <summary>Um ambiente cadastrado à mão: nome (que casa com o Room) e código (o HOSTNAME do sensor).</summary>
     public sealed class SalaRegistrada
     {
-        /// <summary>Código normalizado (ex.: LAB002) — o mesmo do Número do Room e do HOSTNAME.</summary>
+        /// <summary>Código normalizado — chave da sala; igual ao HOSTNAME do sensor, normalizado.</summary>
         public string Codigo { get; set; } = string.Empty;
 
-        /// <summary>Nome amigável opcional, exibido enquanto a sala não casa com um Room.</summary>
+        /// <summary>Código como foi digitado (ex.: BR_UPM-CPS-EDU_T00-FABLAB-MAMB-TU-SHT40_2026), para exibição.</summary>
+        public string CodigoExibido { get; set; } = string.Empty;
+
+        /// <summary>Nome do ambiente — é o que casa com o Número ou Nome do Room no modelo.</summary>
         public string? Nome { get; set; }
 
-        public override string ToString() => Codigo;
+        public override string ToString() => string.IsNullOrWhiteSpace(Nome) ? CodigoExibido : Nome;
     }
 
     /// <summary>
-    /// Cadastro das planilhas que alimentam o painel e das salas criadas à mão, persistido em
-    /// JSON na pasta de dados do usuário (<see cref="ConfiguracaoDeArmazenamento"/>).
+    /// Cadastro das planilhas que alimentam o painel e dos ambientes criados à mão, persistido
+    /// em JSON na pasta de dados do usuário (<see cref="ConfiguracaoDeArmazenamento"/>).
     /// </summary>
     /// <remarks>
     /// Começa com a planilha do DHT22 e cresce pela própria interface do plug-in, sala por sala.
-    /// Uma sala normalmente nasce do HOSTNAME de um sensor; cadastrá-la à mão serve para
-    /// prepará-la antes de o sensor existir — e para que o cadastro das planilhas dela tenha
-    /// onde morar. Usa <c>System.Text.Json</c>, que já vem no .NET 8: nenhum pacote novo.
+    /// Um ambiente cadastrado à mão tem um <b>nome</b>, que é como ele casa com o Room do
+    /// modelo, e um <b>código</b>, que é o HOSTNAME do sensor na planilha: as leituras desse
+    /// sensor vão para esse ambiente. Usa <c>System.Text.Json</c>, que já vem no .NET 8.
     ///
     /// A leitura é tolerante: arquivo ausente, vazio ou corrompido devolve o cadastro padrão e
     /// registra um aviso, em vez de derrubar a abertura da janela. O cadastro em disco só é
@@ -72,13 +74,18 @@ namespace MackTwin.Configuracao
         /// <summary>Todas as planilhas cadastradas, ativas ou não, na ordem de cadastro.</summary>
         public List<PlanilhaRegistrada> Planilhas { get; set; } = new();
 
-        /// <summary>Salas cadastradas à mão, na ordem de cadastro.</summary>
+        /// <summary>Ambientes cadastrados à mão, na ordem de cadastro.</summary>
         public List<SalaRegistrada> Salas { get; set; } = new();
 
         /// <summary>As planilhas que entram no ciclo de atualização.</summary>
         [JsonIgnore]
         public IEnumerable<PlanilhaRegistrada> Ativas =>
             Planilhas.Where(p => p.Ativa && !string.IsNullOrWhiteSpace(p.Url));
+
+        /// <summary>Códigos normalizados das salas cadastradas — o que o resolvedor de sala consulta.</summary>
+        [JsonIgnore]
+        public IReadOnlySet<string> CodigosDasSalas =>
+            new HashSet<string>(Salas.Select(sala => sala.Codigo), StringComparer.Ordinal);
 
         /// <summary>Cadastro inicial: só a planilha do DHT22, sem sala marcada (inferida pelos HOSTNAMEs).</summary>
         public static RegistroDePlanilhas Padrao()
@@ -122,7 +129,12 @@ namespace MackTwin.Configuracao
                     planilha.Sala = NormalizarSala(planilha.Sala);
 
                 registro.Salas = registro.Salas
-                    .Select(sala => new SalaRegistrada { Codigo = NormalizarSala(sala.Codigo) ?? string.Empty, Nome = sala.Nome })
+                    .Select(sala => new SalaRegistrada
+                    {
+                        Codigo = NormalizarSala(sala.Codigo) ?? NormalizarSala(sala.CodigoExibido) ?? string.Empty,
+                        CodigoExibido = string.IsNullOrWhiteSpace(sala.CodigoExibido) ? sala.Codigo : sala.CodigoExibido.Trim(),
+                        Nome = string.IsNullOrWhiteSpace(sala.Nome) ? null : sala.Nome.Trim(),
+                    })
                     .Where(sala => sala.Codigo.Length > 0)
                     .GroupBy(sala => sala.Codigo, StringComparer.Ordinal)
                     .Select(grupo => grupo.First())
@@ -174,17 +186,17 @@ namespace MackTwin.Configuracao
             return removida;
         }
 
-        // ── Salas cadastradas à mão ──────────────────────────────────────
+        // ── Ambientes cadastrados à mão ──────────────────────────────────
 
         /// <summary>
-        /// Cadastra uma sala pelo código (qualquer grafia) e grava. Se já existe, só atualiza o
-        /// nome. Devolve a sala cadastrada.
+        /// Cadastra um ambiente pelo código (o HOSTNAME do sensor, em qualquer grafia) e grava.
+        /// Se já existe, só atualiza o nome. Devolve o ambiente cadastrado.
         /// </summary>
         /// <exception cref="ArgumentException">Código vazio.</exception>
         public SalaRegistrada AdicionarSala(string codigo, string? nome = null)
         {
             string normalizado = NormalizarSala(codigo)
-                ?? throw new ArgumentException("Informe o código da sala (ex.: LAB002).", nameof(codigo));
+                ?? throw new ArgumentException("Informe o código do ambiente (o HOSTNAME do sensor na planilha).", nameof(codigo));
 
             string? nomeAparado = string.IsNullOrWhiteSpace(nome) ? null : nome.Trim();
             var existente = Salas.FirstOrDefault(sala => sala.Codigo == normalizado);
@@ -196,7 +208,7 @@ namespace MackTwin.Configuracao
             }
             else
             {
-                existente = new SalaRegistrada { Codigo = normalizado, Nome = nomeAparado };
+                existente = new SalaRegistrada { Codigo = normalizado, CodigoExibido = codigo.Trim(), Nome = nomeAparado };
                 Salas.Add(existente);
             }
 
@@ -204,7 +216,7 @@ namespace MackTwin.Configuracao
             return existente;
         }
 
-        /// <summary>Remove uma sala cadastrada à mão e grava. Devolve false se não estava no cadastro.</summary>
+        /// <summary>Remove um ambiente cadastrado à mão e grava. Devolve false se não estava no cadastro.</summary>
         public bool RemoverSala(string? codigo)
         {
             string? normalizado = NormalizarSala(codigo);
@@ -220,18 +232,11 @@ namespace MackTwin.Configuracao
             return removidas > 0;
         }
 
-        /// <summary>Se a sala foi cadastrada à mão.</summary>
-        public bool SalaCadastrada(string? codigo)
-        {
-            string? normalizado = NormalizarSala(codigo);
-            return normalizado != null && Salas.Any(sala => sala.Codigo == normalizado);
-        }
-
         // ── Planilhas por sala ───────────────────────────────────────────
 
         /// <summary>
         /// As planilhas de uma sala: as marcadas com ela no cadastro, mais as sem marca cujos
-        /// sensores (pelo HOSTNAME) alimentam essa sala.
+        /// sensores alimentam essa sala.
         /// </summary>
         /// <param name="codigo">Código da sala, em qualquer grafia aceita por <see cref="CodigoDeSala"/>.</param>
         /// <param name="salasDetectadas">
@@ -256,7 +261,7 @@ namespace MackTwin.Configuracao
 
         /// <summary>
         /// As planilhas sem marca de sala que também não alimentam sala alguma — por exemplo,
-        /// uma que falhou ao baixar ou cujos HOSTNAMEs não seguem o padrão.
+        /// uma que falhou ao baixar ou cujos HOSTNAMEs não são reconhecidos.
         /// </summary>
         public IReadOnlyList<PlanilhaRegistrada> PlanilhasSemSala(
             IReadOnlyDictionary<string, IReadOnlyCollection<string>>? salasDetectadas)

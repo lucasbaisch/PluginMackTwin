@@ -34,7 +34,7 @@
 
             <Border Grid.Row="0" Background="{StaticResource BrushBrandSoft}" CornerRadius="8" Padding="10,8" Margin="0,0,0,14">
                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushBrandDark}" FontSize="11.5"
-                           Text="O código é a chave da sala: deve ser o mesmo do Número do Room no modelo e do trecho de sala do HOSTNAME dos sensores (MMCCT&#8203;LAB002&#8203;-001 → LAB002). Maiúsculas, espaços e hífens não importam."/>
+                           Text="O Nome é o que casa com o Room do modelo (Número ou Nome do Room). O Código é o HOSTNAME do sensor na planilha: as leituras desse sensor vão para este ambiente. Maiúsculas, espaços, hífens e sublinhados não importam na comparação."/>
             </Border>
 
             <TextBlock Grid.Row="1" Text="Nome do Ambiente" Foreground="{StaticResource BrushTx2}" Margin="0,0,0,4"/>

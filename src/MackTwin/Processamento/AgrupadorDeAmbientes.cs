@@ -11,24 +11,43 @@ namespace MackTwin.Processamento
     /// Organiza leituras soltas em sensores e sensores em salas, usando o HOSTNAME como chave.
     /// </summary>
     /// <remarks>
-    /// É aqui que o achado-chave vira estrutura: <c>MMCCTLAB001-001</c> e <c>MMCCTLAB001-002</c>
-    /// são dois sensores da mesma sala LAB001, sem que ninguém precise dizer isso. Sensores com
-    /// nome fora do padrão não são perdidos — ficam em <see cref="ConjuntoDeAmbientes.SensoresSemSala"/>,
-    /// com aviso, para que alguém os renomeie. Salas cadastradas à mão entram mesmo sem sensor,
-    /// vazias, para que o cadastro das planilhas delas tenha onde morar. Os totais do conjunto
-    /// são calculados aqui, uma vez, e o HOSTNAME é analisado uma vez por sensor, não por leitura.
+    /// Duas convenções levam um sensor à sua sala (<see cref="ResolvedorDeSala"/>): o padrão
+    /// <c>MMCCT&lt;sala&gt;-&lt;nnn&gt;</c>, em que <c>MMCCTLAB001-001</c> e <c>MMCCTLAB001-002</c>
+    /// caem sozinhos em LAB001, e o HOSTNAME inteiro como código de um ambiente cadastrado à mão.
+    /// Sensores que não casam com nenhuma não são perdidos — ficam em
+    /// <see cref="ConjuntoDeAmbientes.SensoresSemSala"/>, com aviso. Ambientes cadastrados à mão
+    /// entram mesmo sem sensor, vazios, para que o cadastro das planilhas deles tenha onde morar.
+    /// Os totais do conjunto são calculados aqui, uma vez, e o HOSTNAME é analisado uma vez por
+    /// sensor, não por leitura.
     /// </remarks>
     public static class AgrupadorDeAmbientes
     {
         /// <summary>Agrupa as leituras, vindas de uma ou várias planilhas, em salas.</summary>
         /// <param name="leituras">Leituras de qualquer origem, em qualquer ordem.</param>
         /// <param name="avisos">Recebe sensores sem sala e o resumo. Pode ser null.</param>
-        /// <param name="salasCadastradas">Salas cadastradas à mão (código em qualquer grafia, nome opcional). Pode ser null.</param>
+        /// <param name="salasCadastradas">
+        /// Ambientes cadastrados à mão: código como digitado (o HOSTNAME do sensor, em qualquer
+        /// grafia) e nome opcional. Pode ser null.
+        /// </param>
         public static ConjuntoDeAmbientes Agrupar(
             IEnumerable<Leitura> leituras,
             List<string>? avisos = null,
             IEnumerable<(string Codigo, string? Nome)>? salasCadastradas = null)
         {
+            var cadastradas = new List<(string Codigo, string CodigoExibido, string? Nome)>();
+            var codigosCadastrados = new HashSet<string>(StringComparer.Ordinal);
+
+            if (salasCadastradas != null)
+            {
+                foreach (var (codigoBruto, nome) in salasCadastradas)
+                {
+                    string codigo = CodigoDeSala.Normalizar(codigoBruto);
+
+                    if (codigo.Length > 0 && codigosCadastrados.Add(codigo))
+                        cadastradas.Add((codigo, codigoBruto.Trim(), string.IsNullOrWhiteSpace(nome) ? null : nome.Trim()));
+                }
+            }
+
             var sensoresPorHostname = new Dictionary<string, Sensor>(StringComparer.OrdinalIgnoreCase);
             int totalDeLeituras = 0;
 
@@ -43,7 +62,12 @@ namespace MackTwin.Processamento
                 {
                     AnalisadorDeHostname.TentarIdentificar(hostname, out var identificacao);
 
-                    sensor = new Sensor { Hostname = hostname, Identificacao = identificacao };
+                    sensor = new Sensor
+                    {
+                        Hostname = hostname,
+                        Identificacao = identificacao,
+                        CodigoDaSala = ResolvedorDeSala.Resolver(hostname, codigosCadastrados),
+                    };
                     sensoresPorHostname[hostname] = sensor;
                 }
 
@@ -58,50 +82,39 @@ namespace MackTwin.Processamento
                 sensor.Leituras.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
 
             var ambientes = new Dictionary<string, Ambiente>(StringComparer.Ordinal);
+
+            // Primeiro as cadastradas à mão, para que nome e código exibido já estejam nelas.
+            foreach (var (codigo, codigoExibido, nome) in cadastradas)
+            {
+                ambientes[codigo] = new Ambiente
+                {
+                    Codigo = codigo,
+                    CodigoExibido = codigoExibido,
+                    Apelido = nome,
+                    CadastradaManualmente = true,
+                };
+            }
+
             var semSala = new List<Sensor>();
 
             foreach (var sensor in sensoresPorHostname.Values.OrderBy(s => s.Hostname, StringComparer.OrdinalIgnoreCase))
             {
-                if (sensor.Identificacao == null)
+                if (sensor.CodigoDaSala.Length == 0)
                 {
                     semSala.Add(sensor);
                     avisos?.Add(
-                        $"Sensor \"{sensor.Hostname}\" não segue o padrão de nome (ex.: MMCCTLAB001-001) " +
-                        "e não foi associado a nenhuma sala.");
+                        $"Sensor \"{sensor.Hostname}\" não segue o padrão MMCCT<sala>-<nnn> nem é o código de um " +
+                        "ambiente cadastrado; não foi associado a nenhuma sala.");
                     continue;
                 }
 
-                string codigo = sensor.Identificacao.CodigoDaSala;
-
-                if (!ambientes.TryGetValue(codigo, out var ambiente))
+                if (!ambientes.TryGetValue(sensor.CodigoDaSala, out var ambiente))
                 {
-                    ambiente = new Ambiente { Codigo = codigo };
-                    ambientes[codigo] = ambiente;
+                    ambiente = new Ambiente { Codigo = sensor.CodigoDaSala };
+                    ambientes[sensor.CodigoDaSala] = ambiente;
                 }
 
                 ambiente.AdicionarSensor(sensor);
-            }
-
-            if (salasCadastradas != null)
-            {
-                foreach (var (codigoBruto, nome) in salasCadastradas)
-                {
-                    string codigo = CodigoDeSala.Normalizar(codigoBruto);
-
-                    if (codigo.Length == 0)
-                        continue;
-
-                    if (!ambientes.TryGetValue(codigo, out var ambiente))
-                    {
-                        ambiente = new Ambiente { Codigo = codigo };
-                        ambientes[codigo] = ambiente;
-                    }
-
-                    ambiente.CadastradaManualmente = true;
-
-                    if (!string.IsNullOrWhiteSpace(nome))
-                        ambiente.Apelido = nome;
-                }
             }
 
             avisos?.Add(string.Format(CultureInfo.CurrentCulture,
@@ -110,7 +123,7 @@ namespace MackTwin.Processamento
 
             return new ConjuntoDeAmbientes
             {
-                Ambientes = ambientes.Values.OrderBy(a => a.Codigo, StringComparer.Ordinal).ToList(),
+                Ambientes = ambientes.Values.OrderBy(a => a.ChaveDoRoom, StringComparer.Ordinal).ToList(),
                 SensoresSemSala = semSala,
                 AtualizadoEm = DateTime.Now,
                 Avisos = avisos ?? new List<string>(),

@@ -366,14 +366,47 @@ namespace MackTwin.Verificacao
 
             var lab003 = comCadastradas.Ambientes.FirstOrDefault(a => a.Codigo == "LAB003");
 
-            Afirmar(resultados, "Sala cadastrada à mão sem sensor entra no conjunto, vazia, marcada como manual e com o nome",
+            Afirmar(resultados, "Ambiente cadastrado à mão sem sensor entra no conjunto, vazio, marcado como manual, com nome e código como digitado",
                     lab003 != null && lab003.Sensores.Count == 0 && lab003.CadastradaManualmente
-                    && lab003.Titulo == "LAB003 — Laboratório de Física" && lab003.UltimaLeitura == null);
+                    && lab003.Titulo == "Laboratório de Física — lab-003" && lab003.UltimaLeitura == null);
 
-            Afirmar(resultados, "Sala cadastrada à mão que também tem sensor não é duplicada e mantém os sensores",
+            Afirmar(resultados, "Ambiente com nome casa com o Room pelo nome; sem nome, pelo código",
+                    lab003 != null && lab003.ChaveDoRoom == CodigoDeSala.Normalizar("Laboratório de Física")
+                    && comCadastradas.Ambientes.First(a => a.Codigo == "LAB001").ChaveDoRoom == "LAB001");
+
+            Afirmar(resultados, "Ambiente cadastrado à mão que também tem sensor não é duplicado e mantém os sensores",
                     comCadastradas.Ambientes.Count(a => a.Codigo == "LAB001") == 1
                     && comCadastradas.Ambientes.First(a => a.Codigo == "LAB001").Sensores.Count == 2
                     && comCadastradas.Ambientes.Count == 3);
+
+            // Convenção nova: o código do ambiente É o HOSTNAME do sensor.
+            const string hostnameLongo = "BR_UPM-CPS-EDU_T00-FABLAB-MAMB-TU-SHT40_2026";
+            var leiturasNovas = new List<Leitura>
+            {
+                Leitura("2026-10-20 10:00:00", hostnameLongo, 23, 50),
+                Leitura("2026-10-20 10:01:00", "MMCCTLAB001-001", 24, 50),
+            };
+
+            var cadastrados = new HashSet<string>(StringComparer.Ordinal) { CodigoDeSala.Normalizar(hostnameLongo) };
+
+            Afirmar(resultados, "HOSTNAME igual ao código de um ambiente cadastrado resolve para esse ambiente (em qualquer grafia)",
+                    ResolvedorDeSala.Resolver(" br_upm-cps-edu_t00-fablab-mamb-tu-sht40_2026 ", cadastrados) == CodigoDeSala.Normalizar(hostnameLongo));
+
+            Afirmar(resultados, "O padrão MMCCT<sala>-<nnn> continua valendo junto com a convenção nova",
+                    ResolvedorDeSala.Resolver("MMCCTLAB001-001", cadastrados) == "LAB001");
+
+            Afirmar(resultados, "HOSTNAME fora do padrão e não cadastrado fica sem sala",
+                    ResolvedorDeSala.Resolver(hostnameLongo, null).Length == 0
+                    && ResolvedorDeSala.Resolver("SENSOR-X", cadastrados).Length == 0);
+
+            var conjuntoNovo = AgrupadorDeAmbientes.Agrupar(
+                leiturasNovas, null, new[] { (hostnameLongo, (string?)"FABLAB") });
+            var fablab = conjuntoNovo.Ambientes.FirstOrDefault(a => a.Apelido == "FABLAB");
+
+            Afirmar(resultados, "As leituras do sensor de código longo vão para o ambiente cadastrado com esse código; o Room casa por \"FABLAB\"",
+                    fablab != null && fablab.Sensores.Count == 1 && fablab.Sensores[0].Hostname == hostnameLongo
+                    && fablab.ChaveDoRoom == "FABLAB" && fablab.Titulo == "FABLAB — " + hostnameLongo
+                    && conjuntoNovo.SensoresSemSala.Count == 0 && conjuntoNovo.Ambientes.Count == 2);
         }
 
         // ── Faixas de conforto ───────────────────────────────────────────

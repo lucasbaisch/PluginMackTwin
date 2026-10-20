@@ -21,8 +21,11 @@ namespace MackTwin.Dominio
         /// <summary>Leituras em ordem cronológica crescente.</summary>
         public List<Leitura> Leituras { get; } = new();
 
-        /// <summary>Código normalizado da sala, ou vazio se não identificado.</summary>
-        public string CodigoDaSala => Identificacao?.CodigoDaSala ?? string.Empty;
+        /// <summary>
+        /// Código normalizado da sala a que o sensor foi atribuído (pela convenção do HOSTNAME
+        /// ou por cadastro), ou vazio se não identificado.
+        /// </summary>
+        public string CodigoDaSala { get; set; } = string.Empty;
 
         /// <summary>A leitura mais recente, ou null se não há nenhuma.</summary>
         public Leitura? UltimaLeitura => Leituras.Count == 0 ? null : Leituras[Leituras.Count - 1];

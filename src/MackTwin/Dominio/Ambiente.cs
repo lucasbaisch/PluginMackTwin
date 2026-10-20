@@ -6,10 +6,11 @@ namespace MackTwin.Dominio
     /// Uma sala do CCT e os sensores instalados nela.
     /// </summary>
     /// <remarks>
-    /// Nasce das planilhas (todo HOSTNAME identificável cria ou alimenta um ambiente) e, quando
-    /// há modelo aberto, é casada com um Room pelo código (<see cref="CodigoDeSala"/>). O vínculo
-    /// com o modelo é guardado como o valor numérico do <c>ElementId</c>, e não como o tipo do
-    /// Revit, para que o domínio continue verificável fora do Revit.
+    /// Nasce das planilhas (todo HOSTNAME reconhecido cria ou alimenta um ambiente) ou do
+    /// cadastro à mão, e, quando há modelo aberto, é casada com um Room pela
+    /// <see cref="ChaveDoRoom"/>: o nome dado no cadastro, ou o código quando não há nome.
+    /// O vínculo com o modelo é guardado como o valor numérico do <c>ElementId</c>, e não como o
+    /// tipo do Revit, para que o domínio continue verificável fora do Revit.
     ///
     /// <b>As leituras consolidadas são calculadas uma vez.</b> Juntar e ordenar as leituras de
     /// todos os sensores custa O(n log n); o resumo, o gráfico e a pintura pedem essa lista
@@ -20,9 +21,17 @@ namespace MackTwin.Dominio
     {
         private readonly List<Sensor> _sensores = new();
         private List<Leitura>? _leituras;
+        private string? _codigoExibido;
 
         /// <summary>Código normalizado da sala (ex.: LAB001). Chave do ambiente.</summary>
         public string Codigo { get; init; } = string.Empty;
+
+        /// <summary>Código como foi cadastrado (com hífens e sublinhados), para exibição; o próprio código se não houver.</summary>
+        public string CodigoExibido
+        {
+            get => string.IsNullOrWhiteSpace(_codigoExibido) ? Codigo : _codigoExibido;
+            set => _codigoExibido = value;
+        }
 
         /// <summary>Sensores da sala, na ordem em que foram adicionados (por HOSTNAME).</summary>
         public IReadOnlyList<Sensor> Sensores => _sensores;
@@ -39,11 +48,24 @@ namespace MackTwin.Dominio
         /// <summary>Se há um Room correspondente no modelo aberto.</summary>
         public bool CasadoComOModelo => IdDoElementoNoModelo.HasValue;
 
-        /// <summary>Nome dado no cadastro manual da sala, exibido enquanto ela não casa com um Room.</summary>
+        /// <summary>Nome dado no cadastro manual do ambiente — é o que casa com o Room.</summary>
         public string? Apelido { get; set; }
 
-        /// <summary>Se a sala foi cadastrada à mão (e não anunciada por um sensor).</summary>
+        /// <summary>Se a sala foi cadastrada à mão (e não só anunciada por um sensor).</summary>
         public bool CadastradaManualmente { get; set; }
+
+        /// <summary>
+        /// O que se compara com o Número/Nome do Room, já normalizado: o nome do cadastro, ou o
+        /// código quando a sala não tem nome (caso das anunciadas pela convenção do HOSTNAME).
+        /// </summary>
+        public string ChaveDoRoom
+        {
+            get
+            {
+                string peloNome = CodigoDeSala.Normalizar(Apelido);
+                return peloNome.Length > 0 ? peloNome : Codigo;
+            }
+        }
 
         /// <summary>
         /// Acrescenta um sensor. As leituras do sensor devem estar completas e em ordem
@@ -68,13 +90,16 @@ namespace MackTwin.Dominio
             }
         }
 
-        /// <summary>Título para a interface: código e, se houver, o nome no modelo (ou o do cadastro).</summary>
+        /// <summary>
+        /// Título para a interface: o nome (do Room, se casou; senão o do cadastro) e o código;
+        /// só o código quando não há nome.
+        /// </summary>
         public string Titulo
         {
             get
             {
                 string? nome = !string.IsNullOrWhiteSpace(NomeNoModelo) ? NomeNoModelo : Apelido;
-                return string.IsNullOrWhiteSpace(nome) ? Codigo : $"{Codigo} — {nome}";
+                return string.IsNullOrWhiteSpace(nome) ? CodigoExibido : $"{nome} — {CodigoExibido}";
             }
         }
 

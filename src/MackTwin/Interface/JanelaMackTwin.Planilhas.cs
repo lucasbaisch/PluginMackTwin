@@ -122,7 +122,8 @@ namespace MackTwin.Interface
                 return;
             }
 
-            Informar($"Sala {codigo} cadastrada. Numere o Room do modelo com \"{codigo}\" para ela casar, e cadastre as planilhas dela aqui.");
+            string chaveDoRoom = string.IsNullOrWhiteSpace(dialogo.Nome) ? codigo : dialogo.Nome;
+            Informar($"Ambiente cadastrado. Numere (ou nomeie) o Room do modelo como \"{chaveDoRoom}\" para ele casar, e cadastre as planilhas dele aqui.");
             await AtualizarAsync();
             SelecionarSala(codigo);
         }

@@ -53,6 +53,7 @@ namespace MackTwin.Processamento
             int falhas = 0;
 
             var ativas = Registro.Ativas.ToList();
+            var codigosCadastrados = Registro.CodigosDasSalas;
 
             if (ativas.Count == 0)
                 avisos.Add("Nenhuma planilha ativa cadastrada. Ligue \"Editar\" e use \"+ adicionar\" na sala.");
@@ -69,7 +70,7 @@ namespace MackTwin.Processamento
                     salasPorPlanilha[planilha.Url] = daPlanilha
                         .Select(leitura => leitura.Hostname)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .Select(AnalisadorDeHostname.ExtrairCodigoDaSala)
+                        .Select(hostname => ResolvedorDeSala.Resolver(hostname, codigosCadastrados))
                         .Where(codigo => codigo.Length > 0)
                         .Distinct(StringComparer.Ordinal)
                         .ToList();
