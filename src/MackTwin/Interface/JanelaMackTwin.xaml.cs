@@ -51,22 +51,6 @@ namespace MackTwin.Interface
     /// </remarks>
     public partial class JanelaMackTwin : Window
     {
-        private sealed class OpcaoDeJanela
-        {
-            public string Rotulo { get; init; } = string.Empty;
-            public TimeSpan? Janela { get; init; }
-            public override string ToString() => Rotulo;
-        }
-
-        private static readonly OpcaoDeJanela[] OpcoesDeJanela =
-        {
-            new() { Rotulo = "Última hora", Janela = TimeSpan.FromHours(1) },
-            new() { Rotulo = "Últimas 6 horas", Janela = TimeSpan.FromHours(6) },
-            new() { Rotulo = "Últimas 24 horas", Janela = TimeSpan.FromHours(24) },
-            new() { Rotulo = "Últimos 7 dias", Janela = TimeSpan.FromDays(7) },
-            new() { Rotulo = "Tudo", Janela = null },
-        };
-
         private readonly UI.UIApplication _uiApp;
         private readonly DespachanteDoRevit _despachante;
         private readonly RegistroDePlanilhas _registro;
@@ -104,7 +88,6 @@ namespace MackTwin.Interface
             _temporizador.Tick += Temporizador_Tick;
 
             ListaDeAmbientes.ItemsSource = _linhas;
-            InicializarSeletorDeJanela();
             InicializarLegenda();
 
             _despachante.Falhou += DespachanteFalhou;
@@ -260,6 +243,7 @@ namespace MackTwin.Interface
             ConjuntoDeAmbientes conjunto, int casados, int rooms, string? tituloDoModelo, string? erroDeCasamento)
         {
             TimeSpan? janela = JanelaSelecionada;
+            DateTime agora = DateTime.Now;
             bool editar = ModoEdicao;
 
             // Linhas atualizadas em lugar: a lista mantém seleção, rolagem e itens visuais.
@@ -269,12 +253,12 @@ namespace MackTwin.Interface
 
             foreach (var ambiente in conjunto.Ambientes)
             {
-                var resumo = CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela);
+                var resumo = CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela, agora);
                 var planilhas = _registro.PlanilhasDaSala(ambiente.Codigo, conjunto.SalasPorPlanilha);
 
                 if (existentes.TryGetValue(ambiente.Codigo, out var linha))
                 {
-                    linha.Atualizar(ambiente, resumo, planilhas, editar, janela);
+                    linha.Atualizar(ambiente, resumo, planilhas, editar, janela, agora);
 
                     int atual = _linhas.IndexOf(linha);
                     if (atual != posicao)
@@ -282,7 +266,7 @@ namespace MackTwin.Interface
                 }
                 else
                 {
-                    _linhas.Insert(posicao, new LinhaDeAmbiente(ambiente, resumo, planilhas, editar, janela));
+                    _linhas.Insert(posicao, new LinhaDeAmbiente(ambiente, resumo, planilhas, editar, janela, agora));
                 }
 
                 vistos.Add(ambiente.Codigo);
@@ -400,12 +384,34 @@ namespace MackTwin.Interface
             foreach (var sensor in linha.Ambiente.Sensores)
                 PainelDeCartoes.Children.Add(new CartaoDeSensor(sensor));
 
-            // (b) série temporal — as leituras da sala dentro da janela
+            // (b) gráficos — as leituras da sala no período, sobre o eixo do período inteiro
             try
             {
-                var naJanela = CalculadorDeResumoDoAmbiente.FiltrarJanela(
-                    linha.Ambiente.Leituras, linha.Ambiente.UltimaLeitura, JanelaSelecionada);
-                PainelDoGrafico.Content = new ControleGraficoDeSerieTemporal(naJanela);
+                TimeSpan? janela = JanelaSelecionada;
+                DateTime agora = DateTime.Now;
+                var todas = linha.Ambiente.Leituras;
+                var noPeriodo = CalculadorDeResumoDoAmbiente.FiltrarJanela(todas, janela, agora);
+
+                DateTime inicioDoEixo, fimDoEixo;
+
+                if (janela.HasValue)
+                {
+                    inicioDoEixo = agora - janela.Value;
+                    fimDoEixo = agora;
+                }
+                else if (todas.Count > 0)
+                {
+                    inicioDoEixo = todas[0].Timestamp;
+                    fimDoEixo = todas[todas.Count - 1].Timestamp;
+                }
+                else
+                {
+                    inicioDoEixo = agora.AddHours(-1);
+                    fimDoEixo = agora;
+                }
+
+                var balde = AgregadorDeSerie.BaldeRecomendado(fimDoEixo - inicioDoEixo);
+                PainelDoGrafico.Content = new ControleGraficoDeSerieTemporal(noPeriodo, inicioDoEixo, fimDoEixo, balde);
             }
             catch (Exception excecao)
             {
@@ -420,24 +426,33 @@ namespace MackTwin.Interface
             // (c) no modelo — os botões da aba usam a seleção corrente; nada a montar aqui.
         }
 
-        // ── Janela de tempo ──────────────────────────────────────────────
+        // ── Período (botões segmentados) ─────────────────────────────────
 
-        private TimeSpan? JanelaSelecionada =>
-            SeletorDeJanela.SelectedItem is OpcaoDeJanela opcao
-                ? opcao.Janela
-                : CalculadorDeResumoDoAmbiente.JanelaPadrao;
-
-        private void InicializarSeletorDeJanela()
+        /// <summary>
+        /// O período escolhido nos botões: horas no <c>Tag</c> do botão marcado; <c>Tag</c>
+        /// vazio = tudo. Contado do relógio de agora para trás.
+        /// </summary>
+        private TimeSpan? JanelaSelecionada
         {
-            SeletorDeJanela.ItemsSource = OpcoesDeJanela;
-            SeletorDeJanela.SelectedItem =
-                OpcoesDeJanela.FirstOrDefault(opcao => opcao.Janela == CalculadorDeResumoDoAmbiente.JanelaPadrao)
-                ?? OpcoesDeJanela[1];
+            get
+            {
+                foreach (var filho in PainelDePeriodos.Children)
+                {
+                    if (filho is RadioButton { IsChecked: true } botao)
+                    {
+                        return int.TryParse(botao.Tag as string, NumberStyles.Integer, CultureInfo.InvariantCulture, out int horas)
+                            ? TimeSpan.FromHours(horas)
+                            : null;
+                    }
+                }
+
+                return CalculadorDeResumoDoAmbiente.JanelaPadrao;
+            }
         }
 
-        private void SeletorDeJanela_SelectionChanged(object sender, SelectionChangedEventArgs evento)
+        private void Periodo_Checked(object sender, RoutedEventArgs evento)
         {
-            // A janela muda o resumo (e a cor) de todas as salas: refaz as linhas sem baixar nada.
+            // O período muda o resumo (e a cor) de todas as salas: refaz as linhas sem baixar nada.
             ReexibirConjunto();
         }
 
@@ -450,10 +465,11 @@ namespace MackTwin.Interface
             var classificacoes = _linhas.ToDictionary(
                 linha => linha.Codigo, linha => linha.Resumo.ClassificacaoGeral, StringComparer.Ordinal);
             TimeSpan? janela = JanelaSelecionada;
+            DateTime agora = DateTime.Now;
 
             return ambiente => classificacoes.TryGetValue(ambiente.Codigo, out var classificacao)
                 ? classificacao
-                : CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela).ClassificacaoGeral;
+                : CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela, agora).ClassificacaoGeral;
         }
 
         // ── Legenda ──────────────────────────────────────────────────────

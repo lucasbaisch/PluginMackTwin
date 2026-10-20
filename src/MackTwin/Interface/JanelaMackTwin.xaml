@@ -193,10 +193,19 @@
                         <TabItem Header="Gráficos">
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,4,0,10">
-                                    <TextBlock Text="Janela:" VerticalAlignment="Center"
-                                               Foreground="{StaticResource BrushTx2}" Margin="0,0,8,0"/>
-                                    <ComboBox x:Name="SeletorDeJanela" Width="170"
-                                              SelectionChanged="SeletorDeJanela_SelectionChanged"/>
+                                    <TextBlock Text="Período:" VerticalAlignment="Center"
+                                               Foreground="{StaticResource BrushTx2}" Margin="0,0,10,0"/>
+                                    <Border BorderBrush="{StaticResource BrushBd}" BorderThickness="1" CornerRadius="8"
+                                            Background="{StaticResource BrushSurface}" Padding="2">
+                                        <StackPanel x:Name="PainelDePeriodos" Orientation="Horizontal">
+                                            <RadioButton Content="1 h"  Tag="1"   GroupName="Periodo" Style="{StaticResource EstiloSegmento}" Checked="Periodo_Checked"/>
+                                            <RadioButton Content="6 h"  Tag="6"   GroupName="Periodo" Style="{StaticResource EstiloSegmento}" Checked="Periodo_Checked" IsChecked="True"/>
+                                            <RadioButton Content="24 h" Tag="24"  GroupName="Periodo" Style="{StaticResource EstiloSegmento}" Checked="Periodo_Checked"/>
+                                            <RadioButton Content="7 d"  Tag="168" GroupName="Periodo" Style="{StaticResource EstiloSegmento}" Checked="Periodo_Checked"/>
+                                            <RadioButton Content="30 d" Tag="720" GroupName="Periodo" Style="{StaticResource EstiloSegmento}" Checked="Periodo_Checked"/>
+                                            <RadioButton Content="Tudo" Tag=""    GroupName="Periodo" Style="{StaticResource EstiloSegmento}" Checked="Periodo_Checked"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                                 <ContentControl x:Name="PainelDoGrafico"/>
                             </DockPanel>

@@ -9,6 +9,7 @@ using System.Windows.Threading;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
 using MackTwin.Interface.Recursos;
+using MackTwin.Processamento;
 
 namespace MackTwin.Interface.Controles
 {
@@ -22,19 +23,20 @@ namespace MackTwin.Interface.Controles
     /// com <see cref="Polyline"/> faz tudo o que este painel precisa, está sob controle completo
     /// e não traz dependência.
     ///
-    /// <b>Dois painéis, e não dois eixos.</b> Temperatura e umidade têm escalas incomparáveis;
-    /// num eixo duplo a leitura "está dentro ou fora da faixa" fica ambígua. Empilhados, cada
-    /// painel tem a sua faixa e o eixo do tempo é o mesmo.
+    /// <b>O eixo do tempo é o período pedido</b>, não a extensão dos dados: "24 h" vai de ontem
+    /// a agora mesmo que o sensor tenha parado no meio — o vazio à direita é informação.
+    /// Em períodos longos a série chega agregada (<see cref="AgregadorDeSerie"/>): a linha é a
+    /// média do balde e uma faixa translúcida mostra o mínimo e o máximo.
     ///
-    /// <b>Calcula uma vez, desenha quando cabe.</b> Reamostragem, extremos de cada grandeza e
-    /// escala de tempo são calculados no construtor; o desenho só depende do tamanho do Canvas,
-    /// que só se conhece depois do layout — e, durante um redimensionamento, chega dezenas de
-    /// vezes por segundo. Um <see cref="DispatcherTimer"/> curto junta essas chamadas num
-    /// único redesenho. Lacunas (NaN) interrompem a linha em vez de puxá-la para zero.
+    /// <b>Calcula uma vez, desenha quando cabe.</b> Valores, extremos e escala são calculados no
+    /// construtor; o desenho só depende do tamanho do Canvas, que só se conhece depois do
+    /// layout — e, durante um redimensionamento, chega dezenas de vezes por segundo. Um
+    /// <see cref="DispatcherTimer"/> curto junta essas chamadas num único redesenho.
+    /// Lacunas (NaN) interrompem a linha em vez de puxá-la para zero.
     /// </remarks>
     public sealed class ControleGraficoDeSerieTemporal : UserControl
     {
-        /// <summary>Teto de pontos desenhados por série; acima disso a série é reamostrada.</summary>
+        /// <summary>Teto de pontos brutos desenhados por série; acima disso a série é reamostrada.</summary>
         public const int MaximoDePontos = 1500;
 
         private const double MargemEsquerda = 48;
@@ -53,60 +55,81 @@ namespace MackTwin.Interface.Controles
         private sealed class Serie
         {
             public double[] Valores = Array.Empty<double>();
+            public double[]? Minimos;
+            public double[]? Maximos;
             public double ValorMinimo;
             public double ValorMaximo;
             public double FaixaMinima;
             public double FaixaMaxima;
             public Brush Pincel = Brushes.Black;
+            public Brush PincelDaBanda = Brushes.Transparent;
             public string Formato = "0";
             public string Unidade = string.Empty;
             public Canvas Canvas = new();
         }
 
         private readonly DateTime[] _tempos;
+        private readonly DateTime _inicioDoEixo;
         private readonly double _duracaoEmSegundos;
         private readonly string _formatoDoTempo;
+        private readonly string? _descricaoDoBalde;
         private readonly List<Serie> _series = new();
         private readonly DispatcherTimer _redesenho;
 
-        /// <summary>Monta o gráfico das leituras informadas (já em ordem cronológica).</summary>
-        public ControleGraficoDeSerieTemporal(IReadOnlyList<Leitura> leituras)
+        /// <summary>
+        /// Monta o gráfico das leituras (já em ordem cronológica) sobre o eixo
+        /// [<paramref name="inicioDoEixo"/>, <paramref name="fimDoEixo"/>], agregando em
+        /// <paramref name="balde"/> quando informado.
+        /// </summary>
+        public ControleGraficoDeSerieTemporal(
+            IReadOnlyList<Leitura> leituras, DateTime inicioDoEixo, DateTime fimDoEixo, TimeSpan? balde)
         {
-            var amostra = Reamostrar(leituras);
-
-            _tempos = new DateTime[amostra.Count];
-            for (int indice = 0; indice < amostra.Count; indice++)
-                _tempos[indice] = amostra[indice].Timestamp;
-
             _redesenho = new DispatcherTimer { Interval = AtrasoDoRedesenho };
             _redesenho.Tick += (remetente, evento) => { _redesenho.Stop(); DesenharTudo(); };
 
-            if (amostra.Count == 0)
+            if (fimDoEixo <= inicioDoEixo)
+                fimDoEixo = inicioDoEixo.AddHours(1);
+
+            _inicioDoEixo = inicioDoEixo;
+            _duracaoEmSegundos = Math.Max((fimDoEixo - inicioDoEixo).TotalSeconds, 1.0);
+            _formatoDoTempo = fimDoEixo - inicioDoEixo > TimeSpan.FromDays(1) ? "dd/MM HH:mm" : "HH:mm";
+
+            Serie temperatura, umidade;
+
+            if (balde.HasValue && leituras.Count > 0)
             {
-                _duracaoEmSegundos = 1;
-                _formatoDoTempo = "HH:mm";
-                Content = new TextBlock
-                {
-                    Text = "Sem leituras na janela escolhida.",
-                    Foreground = PincelDoTexto,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 13,
-                };
-                return;
+                var pontos = AgregadorDeSerie.Agregar(leituras, balde.Value);
+                _tempos = new DateTime[pontos.Count];
+                for (int indice = 0; indice < pontos.Count; indice++)
+                    _tempos[indice] = pontos[indice].Inicio;
+
+                _descricaoDoBalde = balde.Value >= TimeSpan.FromDays(1) ? "média por dia, faixa mín–máx" : "média por hora, faixa mín–máx";
+
+                temperatura = PrepararSerieAgregada(pontos,
+                    p => p.TemperaturaMedia, p => p.TemperaturaMinima, p => p.TemperaturaMaxima,
+                    FaixasDeConfortoAmbiental.TemperaturaMinima, FaixasDeConfortoAmbiental.TemperaturaMaxima,
+                    Paleta.Temperatura, "0.0", "°C");
+
+                umidade = PrepararSerieAgregada(pontos,
+                    p => p.UmidadeMedia, p => p.UmidadeMinima, p => p.UmidadeMaxima,
+                    FaixasDeConfortoAmbiental.UmidadeMinima, FaixasDeConfortoAmbiental.UmidadeMaxima,
+                    Paleta.Umidade, "0", "%");
             }
+            else
+            {
+                var amostra = Reamostrar(leituras);
+                _tempos = new DateTime[amostra.Count];
+                for (int indice = 0; indice < amostra.Count; indice++)
+                    _tempos[indice] = amostra[indice].Timestamp;
 
-            var intervalo = _tempos[_tempos.Length - 1] - _tempos[0];
-            _duracaoEmSegundos = Math.Max(intervalo.TotalSeconds, 1.0);
-            _formatoDoTempo = intervalo > TimeSpan.FromDays(1) ? "dd/MM HH:mm" : "HH:mm";
+                temperatura = PrepararSerie(amostra, l => l.Temperatura,
+                    FaixasDeConfortoAmbiental.TemperaturaMinima, FaixasDeConfortoAmbiental.TemperaturaMaxima,
+                    Paleta.Temperatura, "0.0", "°C");
 
-            var temperatura = PrepararSerie(amostra, l => l.Temperatura,
-                FaixasDeConfortoAmbiental.TemperaturaMinima, FaixasDeConfortoAmbiental.TemperaturaMaxima,
-                Paleta.Temperatura, "0.0", "°C");
-
-            var umidade = PrepararSerie(amostra, l => l.Umidade,
-                FaixasDeConfortoAmbiental.UmidadeMinima, FaixasDeConfortoAmbiental.UmidadeMaxima,
-                Paleta.Umidade, "0", "%");
+                umidade = PrepararSerie(amostra, l => l.Umidade,
+                    FaixasDeConfortoAmbiental.UmidadeMinima, FaixasDeConfortoAmbiental.UmidadeMaxima,
+                    Paleta.Umidade, "0", "%");
+            }
 
             var grade = new Grid();
             grade.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -131,30 +154,67 @@ namespace MackTwin.Interface.Controles
             double faixaMinima, double faixaMaxima, Color cor, string formato, string unidade)
         {
             var valores = new double[amostra.Count];
-            double minimo = faixaMinima, maximo = faixaMaxima;
 
             for (int indice = 0; indice < amostra.Count; indice++)
+                valores[indice] = valor(amostra[indice]);
+
+            return ConcluirSerie(valores, null, null, faixaMinima, faixaMaxima, cor, formato, unidade);
+        }
+
+        private Serie PrepararSerieAgregada(
+            List<PontoAgregado> pontos,
+            Func<PontoAgregado, double> media, Func<PontoAgregado, double> minimo, Func<PontoAgregado, double> maximo,
+            double faixaMinima, double faixaMaxima, Color cor, string formato, string unidade)
+        {
+            var medias = new double[pontos.Count];
+            var minimos = new double[pontos.Count];
+            var maximos = new double[pontos.Count];
+
+            for (int indice = 0; indice < pontos.Count; indice++)
             {
-                double v = valor(amostra[indice]);
-                valores[indice] = v;
-
-                if (double.IsNaN(v))
-                    continue;
-
-                if (v < minimo) minimo = v;
-                if (v > maximo) maximo = v;
+                medias[indice] = media(pontos[indice]);
+                minimos[indice] = minimo(pontos[indice]);
+                maximos[indice] = maximo(pontos[indice]);
             }
 
-            double folga = Math.Max((maximo - minimo) * 0.08, 0.5);
+            return ConcluirSerie(medias, minimos, maximos, faixaMinima, faixaMaxima, cor, formato, unidade);
+        }
+
+        private Serie ConcluirSerie(
+            double[] valores, double[]? minimos, double[]? maximos,
+            double faixaMinima, double faixaMaxima, Color cor, string formato, string unidade)
+        {
+            double menor = faixaMinima, maior = faixaMaxima;
+
+            void Considerar(double[]? vetor)
+            {
+                if (vetor == null) return;
+
+                foreach (double v in vetor)
+                {
+                    if (double.IsNaN(v)) continue;
+                    if (v < menor) menor = v;
+                    if (v > maior) maior = v;
+                }
+            }
+
+            Considerar(valores);
+            Considerar(minimos);
+            Considerar(maximos);
+
+            double folga = Math.Max((maior - menor) * 0.08, 0.5);
 
             var serie = new Serie
             {
                 Valores = valores,
-                ValorMinimo = minimo - folga,
-                ValorMaximo = maximo + folga,
+                Minimos = minimos,
+                Maximos = maximos,
+                ValorMinimo = menor - folga,
+                ValorMaximo = maior + folga,
                 FaixaMinima = faixaMinima,
                 FaixaMaxima = faixaMaxima,
                 Pincel = Paleta.Pincel(cor),
+                PincelDaBanda = Paleta.Pincel(Color.FromArgb(0x33, cor.R, cor.G, cor.B)),
                 Formato = formato,
                 Unidade = unidade,
                 Canvas = new Canvas { ClipToBounds = true, Background = Brushes.Transparent, MinHeight = 110 },
@@ -169,10 +229,15 @@ namespace MackTwin.Interface.Controles
         {
             var cabecalho = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
 
+            string legendaDaFaixa = string.Format(CultureInfo.CurrentCulture, "faixa de conforto {0:0}–{1:0} {2}",
+                serie.FaixaMinima, serie.FaixaMaxima, serie.Unidade);
+
+            if (_descricaoDoBalde != null)
+                legendaDaFaixa = _descricaoDoBalde + "  ·  " + legendaDaFaixa;
+
             var faixa = new TextBlock
             {
-                Text = string.Format(CultureInfo.CurrentCulture, "faixa de conforto {0:0}–{1:0} {2}",
-                    serie.FaixaMinima, serie.FaixaMaxima, serie.Unidade),
+                Text = legendaDaFaixa,
                 FontSize = 10.5,
                 Foreground = PincelDoTexto,
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -236,10 +301,9 @@ namespace MackTwin.Interface.Controles
                 return;
 
             double amplitude = serie.ValorMaximo - serie.ValorMinimo;
-            DateTime tempoInicial = _tempos[0];
 
             double Y(double v) => y1 - (v - serie.ValorMinimo) / amplitude * (y1 - y0);
-            double X(DateTime t) => x0 + (t - tempoInicial).TotalSeconds / _duracaoEmSegundos * (x1 - x0);
+            double X(DateTime t) => x0 + (t - _inicioDoEixo).TotalSeconds / _duracaoEmSegundos * (x1 - x0);
 
             // ── faixa de conforto ──
             double topoDaFaixa = Y(serie.FaixaMaxima);
@@ -278,14 +342,14 @@ namespace MackTwin.Interface.Controles
                 canvas.Children.Add(rotulo);
             }
 
-            // ── eixo do tempo ──
+            // ── eixo do tempo (o período pedido, não a extensão dos dados) ──
             canvas.Children.Add(new Line { X1 = x0, X2 = x1, Y1 = y1, Y2 = y1, Stroke = PincelDoEixo, StrokeThickness = 1 });
 
             int rotulosDeTempo = Math.Max(2, Math.Min(7, (int)((x1 - x0) / 90)));
 
             for (int indice = 0; indice <= rotulosDeTempo; indice++)
             {
-                var t = tempoInicial.AddSeconds(_duracaoEmSegundos * indice / rotulosDeTempo);
+                var t = _inicioDoEixo.AddSeconds(_duracaoEmSegundos * indice / rotulosDeTempo);
                 double x = X(t);
 
                 canvas.Children.Add(new Line { X1 = x, X2 = x, Y1 = y1, Y2 = y1 + 3, Stroke = PincelDoEixo, StrokeThickness = 1 });
@@ -302,6 +366,24 @@ namespace MackTwin.Interface.Controles
                 Canvas.SetTop(rotulo, y1 + 5);
                 canvas.Children.Add(rotulo);
             }
+
+            if (serie.Valores.Length == 0)
+            {
+                var aviso = new TextBlock
+                {
+                    Text = "Sem leituras neste período.",
+                    FontSize = 11,
+                    Foreground = PincelDoTexto,
+                };
+                Canvas.SetLeft(aviso, x0 + 8);
+                Canvas.SetTop(aviso, y0 + 4);
+                canvas.Children.Add(aviso);
+                return;
+            }
+
+            // ── banda mínimo–máximo (séries agregadas) ──
+            if (serie.Minimos != null && serie.Maximos != null)
+                DesenharBanda(canvas, serie, X, Y);
 
             // ── linha, interrompida nas lacunas ──
             var segmento = new PointCollection();
@@ -370,6 +452,47 @@ namespace MackTwin.Interface.Controles
                 Canvas.SetTop(destaque, Math.Max(y0, ultimoPonto.Value.Y - 18));
                 canvas.Children.Add(destaque);
             }
+        }
+
+        /// <summary>Polígono translúcido entre mínimo e máximo, em trechos contínuos (lacunas o interrompem).</summary>
+        private void DesenharBanda(Canvas canvas, Serie serie, Func<DateTime, double> X, Func<double, double> Y)
+        {
+            var superior = new List<Point>();
+            var inferior = new List<Point>();
+
+            void Despejar()
+            {
+                if (superior.Count >= 2)
+                {
+                    var pontos = new PointCollection(superior.Count * 2);
+
+                    foreach (var p in superior) pontos.Add(p);
+                    for (int i = inferior.Count - 1; i >= 0; i--) pontos.Add(inferior[i]);
+
+                    canvas.Children.Add(new Polygon { Points = pontos, Fill = serie.PincelDaBanda });
+                }
+
+                superior.Clear();
+                inferior.Clear();
+            }
+
+            for (int indice = 0; indice < serie.Valores.Length; indice++)
+            {
+                double maximo = serie.Maximos![indice];
+                double minimo = serie.Minimos![indice];
+
+                if (double.IsNaN(maximo) || double.IsNaN(minimo))
+                {
+                    Despejar();
+                    continue;
+                }
+
+                double x = X(_tempos[indice]);
+                superior.Add(new Point(x, Y(maximo)));
+                inferior.Add(new Point(x, Y(minimo)));
+            }
+
+            Despejar();
         }
 
         private static void AdicionarPonto(Canvas canvas, Point centro, double raio, Brush pincel)

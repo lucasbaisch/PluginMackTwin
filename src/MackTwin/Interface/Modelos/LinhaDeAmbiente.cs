@@ -86,21 +86,24 @@ namespace MackTwin.Interface.Modelos
             ResumoDoAmbiente resumo,
             IReadOnlyList<PlanilhaRegistrada> planilhas,
             bool modoEdicao,
-            TimeSpan? janela)
+            TimeSpan? janela,
+            DateTime agora)
         {
             Ambiente = ambiente;
             Resumo = resumo;
             Planilhas = planilhas;
-            Atualizar(ambiente, resumo, planilhas, modoEdicao, janela);
+            Atualizar(ambiente, resumo, planilhas, modoEdicao, janela, agora);
         }
 
         /// <summary>Troca o conteúdo da linha e avisa os bindings — sem recriar o item visual.</summary>
+        /// <param name="agora">Instante de referência do ciclo; entra na assinatura truncado ao minuto, porque a janela é contada dele.</param>
         public void Atualizar(
             Ambiente ambiente,
             ResumoDoAmbiente resumo,
             IReadOnlyList<PlanilhaRegistrada> planilhas,
             bool modoEdicao,
-            TimeSpan? janela)
+            TimeSpan? janela,
+            DateTime agora)
         {
             Ambiente = ambiente;
             Resumo = resumo;
@@ -113,12 +116,13 @@ namespace MackTwin.Interface.Modelos
                 : "sem Room correspondente no modelo";
             Cor = Paleta.Pincel(Paleta.CorDeConforto(resumo.ClassificacaoGeral));
 
-            Assinatura = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}",
+            Assinatura = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}|{5}",
                 ambiente.Codigo,
                 ambiente.UltimaLeitura?.Timestamp.Ticks ?? 0,
                 ambiente.Sensores.Count,
                 janela?.Ticks ?? -1,
-                ambiente.IdDoElementoNoModelo ?? 0);
+                ambiente.IdDoElementoNoModelo ?? 0,
+                janela.HasValue ? agora.Ticks / TimeSpan.TicksPerMinute : 0);
 
             PropertyChanged?.Invoke(this, TudoMudou);
         }

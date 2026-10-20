@@ -11,13 +11,13 @@ namespace MackTwin.Processamento
     /// tempo e a classificação geral que define a cor.
     /// </summary>
     /// <remarks>
-    /// A janela é contada <b>da última leitura para trás</b>, e não do relógio desta máquina:
-    /// se o sensor ficou offline ontem, "as últimas 6 horas" ainda mostram as 6 horas finais em
-    /// que ele falou, em vez de uma tela vazia. A data da última leitura, exibida ao lado, é o
-    /// que denuncia o atraso.
+    /// A janela é contada <b>do instante de referência para trás</b> — o relógio de agora, na
+    /// interface. "24 h" são as últimas 24 horas reais: um sensor parado há dois dias fica sem
+    /// leituras na janela e a sala vira "sem dados", que é a informação de monitoramento
+    /// correta; a data da última leitura, exibida no cartão, denuncia o atraso.
     ///
-    /// A classificação é pela ÚLTIMA leitura — é o estado atual da sala —, e a média existe para
-    /// contextualizá-la, não para substituí-la.
+    /// A classificação é pela ÚLTIMA leitura dentro da janela — é o estado atual da sala —, e a
+    /// média existe para contextualizá-la, não para substituí-la.
     ///
     /// As leituras do ambiente já chegam ordenadas e consolidadas (<see cref="Ambiente.Leituras"/>),
     /// então o início da janela é achado por busca binária, sem percorrer a série.
@@ -28,11 +28,10 @@ namespace MackTwin.Processamento
         public static readonly TimeSpan JanelaPadrao =
             TimeSpan.FromHours(ConfiguracaoDaPlanilhaGoogle.JanelaPadraoDaSerieEmHoras);
 
-        /// <summary>Resume a sala na janela informada (null = todas as leituras).</summary>
-        public static ResumoDoAmbiente Resumir(Ambiente ambiente, TimeSpan? janela)
+        /// <summary>Resume a sala na janela informada (null = todas as leituras), contada de <paramref name="agora"/> para trás.</summary>
+        public static ResumoDoAmbiente Resumir(Ambiente ambiente, TimeSpan? janela, DateTime agora)
         {
-            var ultima = ambiente.UltimaLeitura;
-            var consideradas = FiltrarJanela(ambiente.Leituras, ultima, janela);
+            var consideradas = FiltrarJanela(ambiente.Leituras, janela, agora);
 
             var temperatura = Calcular(
                 consideradas.Where(l => l.TemTemperatura).Select(l => l.Temperatura),
@@ -47,7 +46,7 @@ namespace MackTwin.Processamento
             return new ResumoDoAmbiente
             {
                 Codigo = ambiente.Codigo,
-                UltimaLeitura = ultima,
+                UltimaLeitura = ambiente.UltimaLeitura,
                 Temperatura = temperatura,
                 Umidade = umidade,
                 ClassificacaoGeral = ClassificadorDeConforto.Combinar(temperatura.Classificacao, umidade.Classificacao),
@@ -102,22 +101,25 @@ namespace MackTwin.Processamento
         }
 
         /// <summary>
-        /// As leituras dentro da janela terminada na última leitura. Janela nula devolve a
-        /// própria lista; janela que cobre tudo também — sem cópia.
+        /// As leituras com carimbo em [<paramref name="agora"/> − janela, +∞). Janela nula devolve
+        /// a própria lista; janela que cobre tudo também — sem cópia.
         /// </summary>
-        public static IReadOnlyList<Leitura> FiltrarJanela(IReadOnlyList<Leitura> leituras, Leitura? ultima, TimeSpan? janela)
+        public static IReadOnlyList<Leitura> FiltrarJanela(IReadOnlyList<Leitura> leituras, TimeSpan? janela, DateTime agora)
         {
-            if (ultima == null || leituras.Count == 0)
+            if (leituras.Count == 0)
                 return Array.Empty<Leitura>();
 
             if (janela == null)
                 return leituras;
 
-            DateTime inicio = ultima.Timestamp - janela.Value;
+            DateTime inicio = agora - janela.Value;
             int primeiro = PrimeiroIndiceAPartirDe(leituras, inicio);
 
             if (primeiro == 0)
                 return leituras;
+
+            if (primeiro >= leituras.Count)
+                return Array.Empty<Leitura>();
 
             var dentro = new List<Leitura>(leituras.Count - primeiro);
 

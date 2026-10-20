@@ -146,6 +146,34 @@
         </Setter>
     </Style>
 
+    <!-- ── Segmento de período (1 h · 6 h · 24 h · 7 d · 30 d · Tudo) ──── -->
+    <Style x:Key="EstiloSegmento" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource BrushTx2}"/>
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="11,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" CornerRadius="6" Padding="{TemplateBinding Padding}" Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrandSoft}"/>
+                            <Setter Property="Foreground" Value="{StaticResource BrushBrandDark}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushBrand}"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ── Interruptor "Editar": o estado global da janela ──────────────── -->
     <Style x:Key="EstiloInterruptor" TargetType="ToggleButton">
         <Setter Property="Cursor" Value="Hand"/>

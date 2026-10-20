@@ -101,6 +101,7 @@ namespace MackTwin.Verificacao
             VerificarAgrupamento(resultados);
             VerificarClassificacao(resultados);
             VerificarResumo(resultados);
+            VerificarAgregacao(resultados);
             VerificarCores(resultados);
             VerificarPlanilhasPorSala(resultados);
 
@@ -462,10 +463,17 @@ namespace MackTwin.Verificacao
             sensor.Leituras.Add(Leitura("2026-10-15 10:00:00", host, 27, 70));
             ambiente.AdicionarSensor(sensor);
 
-            var seisHoras = CalculadorDeResumoDoAmbiente.Resumir(ambiente, TimeSpan.FromHours(6));
+            var referencia = new DateTime(2026, 10, 15, 10, 0, 0);
+            var seisHoras = CalculadorDeResumoDoAmbiente.Resumir(ambiente, TimeSpan.FromHours(6), referencia);
 
-            Afirmar(resultados, "A janela de 6 h conta da ÚLTIMA leitura para trás: 2 das 3 leituras entram",
+            Afirmar(resultados, "A janela de 6 h conta do instante de referência para trás: 2 das 3 leituras entram",
                     seisHoras.TotalDeLeituras == 2, $"obtido {seisHoras.TotalDeLeituras}");
+
+            var umDiaDepois = CalculadorDeResumoDoAmbiente.Resumir(ambiente, TimeSpan.FromHours(6), referencia.AddDays(1));
+
+            Afirmar(resultados, "Sensor parado há mais tempo que a janela: nenhuma leitura no período, sala \"sem dados\", última leitura preservada",
+                    umDiaDepois.TotalDeLeituras == 0 && umDiaDepois.ClassificacaoGeral == ClassificacaoDeConforto.SemDados
+                    && umDiaDepois.UltimaLeitura != null && umDiaDepois.UltimaLeitura.Timestamp == referencia);
 
             Afirmar(resultados, "Temperatura na janela: última 27, média 25,5, mín 24, máx 27",
                     Math.Abs(seisHoras.Temperatura.Ultimo - 27) < Folga
@@ -489,14 +497,14 @@ namespace MackTwin.Verificacao
 
             Afirmar(resultados, "O resumo registra 1 sensor na sala", seisHoras.QuantidadeDeSensores == 1);
 
-            var tudo = CalculadorDeResumoDoAmbiente.Resumir(ambiente, null);
+            var tudo = CalculadorDeResumoDoAmbiente.Resumir(ambiente, null, referencia);
 
             Afirmar(resultados, "Janela nula considera tudo: 3 leituras, mínimos 20 °C e 40 %",
                     tudo.TotalDeLeituras == 3
                     && Math.Abs(tudo.Temperatura.Minimo - 20) < Folga
                     && Math.Abs(tudo.Umidade.Minimo - 40) < Folga);
 
-            var vazio = CalculadorDeResumoDoAmbiente.Resumir(new Ambiente { Codigo = "VAZIO" }, null);
+            var vazio = CalculadorDeResumoDoAmbiente.Resumir(new Ambiente { Codigo = "VAZIO" }, null, referencia);
 
             Afirmar(resultados, "Sala sem leituras: sem última leitura, sem dados, classificação \"sem dados\"",
                     vazio.UltimaLeitura == null && !vazio.Temperatura.TemDados && vazio.TotalDeLeituras == 0
@@ -506,11 +514,48 @@ namespace MackTwin.Verificacao
             var sensorParcial = new Sensor { Hostname = "MMCCTSOTEMP-001" };
             sensorParcial.Leituras.Add(Leitura("2026-10-15 10:00:00", "MMCCTSOTEMP-001", 22, double.NaN));
             soTemperatura.AdicionarSensor(sensorParcial);
-            var parcial = CalculadorDeResumoDoAmbiente.Resumir(soTemperatura, null);
+            var parcial = CalculadorDeResumoDoAmbiente.Resumir(soTemperatura, null, referencia);
 
             Afirmar(resultados, "Sensor só de temperatura: umidade \"sem dados\" e geral pela temperatura (22 °C → confortável)",
                     parcial.Umidade.Classificacao == ClassificacaoDeConforto.SemDados
                     && parcial.ClassificacaoGeral == ClassificacaoDeConforto.Confortavel);
+        }
+
+        // ── Agregação da série para períodos longos ──────────────────────
+
+        private static void VerificarAgregacao(List<ResultadoDeVerificacao> resultados)
+        {
+            Afirmar(resultados, "Até 2 dias, pontos brutos; até 2 semanas, balde de 1 h; acima, balde de 1 dia",
+                    AgregadorDeSerie.BaldeRecomendado(TimeSpan.FromHours(24)) == null
+                    && AgregadorDeSerie.BaldeRecomendado(TimeSpan.FromDays(7)) == TimeSpan.FromHours(1)
+                    && AgregadorDeSerie.BaldeRecomendado(TimeSpan.FromDays(30)) == TimeSpan.FromDays(1));
+
+            const string host = "MMCCTLAB001-001";
+            var leituras = new List<Leitura>
+            {
+                Leitura("2026-10-15 10:05:00", host, 20, 40),
+                Leitura("2026-10-15 10:35:00", host, 24, double.NaN),
+                Leitura("2026-10-15 11:10:00", host, 30, 60),
+                Leitura("2026-10-15 13:00:00", host, double.NaN, 50),
+            };
+
+            var pontos = AgregadorDeSerie.Agregar(leituras, TimeSpan.FromHours(1));
+
+            Afirmar(resultados, "Quatro leituras em três horas distintas viram 3 baldes (o balde vazio das 12 h não aparece)",
+                    pontos.Count == 3 && pontos[0].Inicio == new DateTime(2026, 10, 15, 10, 0, 0)
+                    && pontos[2].Inicio == new DateTime(2026, 10, 15, 13, 0, 0));
+
+            Afirmar(resultados, "Balde das 10 h: média 22, mín 20, máx 24 de temperatura; umidade só da leitura válida (40)",
+                    Math.Abs(pontos[0].TemperaturaMedia - 22) < Folga && Math.Abs(pontos[0].TemperaturaMinima - 20) < Folga
+                    && Math.Abs(pontos[0].TemperaturaMaxima - 24) < Folga && Math.Abs(pontos[0].UmidadeMedia - 40) < Folga
+                    && pontos[0].Quantidade == 2);
+
+            Afirmar(resultados, "Balde das 13 h: sem temperatura válida → NaN; umidade 50",
+                    double.IsNaN(pontos[2].TemperaturaMedia) && Math.Abs(pontos[2].UmidadeMedia - 50) < Folga);
+
+            Afirmar(resultados, "Sem leituras, nenhum balde; balde não positivo é recusado",
+                    AgregadorDeSerie.Agregar(Array.Empty<Leitura>(), TimeSpan.FromHours(1)).Count == 0
+                    && Lanca<ArgumentOutOfRangeException>(() => AgregadorDeSerie.Agregar(leituras, TimeSpan.Zero)));
         }
 
         // ── Cores ────────────────────────────────────────────────────────
