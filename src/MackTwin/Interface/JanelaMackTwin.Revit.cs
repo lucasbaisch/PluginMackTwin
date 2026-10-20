@@ -269,7 +269,62 @@ namespace MackTwin.Interface
 
         private void BotaoVoltarAoAgora_Click(object sender, RoutedEventArgs evento)
         {
+            PararReproducao();
             DeslizadorDoTempo.Value = PosicaoDoAgora;
+        }
+
+        // ── Reprodução automática ────────────────────────────────────────
+
+        private DispatcherTimer? _temporizadorDeReproducao;
+
+        private bool Reproduzindo => _temporizadorDeReproducao?.IsEnabled == true;
+
+        /// <summary>
+        /// Reproduz as 24 h: avança o deslizador uma hora a cada meio segundo (escolha do usuário)
+        /// e para ao chegar no agora. Do agora, recomeça do primeiro quadro.
+        /// </summary>
+        private void BotaoReproduzir_Click(object sender, RoutedEventArgs evento)
+        {
+            if (Reproduzindo)
+            {
+                PararReproducao();
+                return;
+            }
+
+            if (_conjunto == null)
+            {
+                Informar("Aguarde a primeira atualização para reproduzir a linha do tempo.");
+                return;
+            }
+
+            if (PosicaoSelecionada() >= PosicaoDoAgora)
+                DeslizadorDoTempo.Value = 0;
+
+            _temporizadorDeReproducao ??= new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(ConfiguracaoDeExportacao.IntervaloDeReproducaoEmMilissegundos),
+            };
+            _temporizadorDeReproducao.Tick -= Reproducao_Tick;
+            _temporizadorDeReproducao.Tick += Reproducao_Tick;
+            _temporizadorDeReproducao.Start();
+            BotaoReproduzir.Content = "❚❚  Pausar";
+        }
+
+        private void Reproducao_Tick(object? sender, EventArgs evento)
+        {
+            if (PosicaoSelecionada() >= PosicaoDoAgora)
+            {
+                PararReproducao();
+                return;
+            }
+
+            DeslizadorDoTempo.Value = PosicaoSelecionada() + 1;
+        }
+
+        private void PararReproducao()
+        {
+            _temporizadorDeReproducao?.Stop();
+            BotaoReproduzir.Content = "▶  Reproduzir";
         }
 
         private int PosicaoSelecionada()
@@ -277,9 +332,14 @@ namespace MackTwin.Interface
             return Math.Clamp((int)Math.Round(DeslizadorDoTempo.Value), 0, PosicaoDoAgora);
         }
 
+        private bool _repinturaPendente;
+        private bool _repinturaAtrasada;
+
         /// <summary>
         /// Repinta a vista ativa com o estado que as salas tinham na hora escolhida — ou com o
         /// estado atual, na última posição. Só o modelo muda; lista e cartões continuam ao vivo.
+        /// Se o Revit ainda está pintando o quadro anterior, guarda o pedido e aplica a posição
+        /// mais recente quando ele terminar — a reprodução nunca enfileira quadros atrasados.
         /// </summary>
         private void AplicarInstanteDaLinhaDoTempo()
         {
@@ -290,6 +350,14 @@ namespace MackTwin.Interface
                 Informar("Aguarde a primeira atualização para usar a linha do tempo.");
                 return;
             }
+
+            if (_repinturaPendente)
+            {
+                _repinturaAtrasada = true;
+                return;
+            }
+
+            _repinturaPendente = true;
 
             int posicao = PosicaoSelecionada();
             Func<Ambiente, ResumoDoAmbiente> resumir;
@@ -316,23 +384,187 @@ namespace MackTwin.Interface
 
             _despachante.Executar(app =>
             {
+                try
+                {
+                    var uiDocumento = app.ActiveUIDocument;
+
+                    if (uiDocumento == null)
+                        return;
+
+                    var vista = uiDocumento.ActiveView;
+
+                    if (!PintorDeAmbientes.VistaAceitaPintura(vista))
+                    {
+                        TextoStatus.Text = $"A vista ativa (\"{vista.Name}\") não aceita pintura; abra uma planta ou vista 3D para usar a linha do tempo.";
+                        return;
+                    }
+
+                    var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, resumir);
+                    uiDocumento.RefreshActiveView();
+
+                    TextoStatus.Text = pintura.Aviso ?? $"Modelo mostrando o estado de {descricao} em \"{vista.Name}\".";
+                }
+                finally
+                {
+                    _repinturaPendente = false;
+
+                    if (_repinturaAtrasada)
+                    {
+                        _repinturaAtrasada = false;
+                        AplicarInstanteDaLinhaDoTempo();
+                    }
+                }
+            });
+        }
+
+        // ── Cores temporárias e mapa de calor ────────────────────────────
+
+        private void BotaoCoresTemporarias_Click(object sender, RoutedEventArgs evento)
+        {
+            var conjunto = _conjunto;
+
+            if (conjunto == null)
+            {
+                Informar("Aguarde a primeira atualização.");
+                return;
+            }
+
+            if (!conjunto.Ambientes.Any(ambiente => ambiente.CasadoComOModelo))
+            {
+                Informar("Nenhuma sala das planilhas casou com um Room do modelo; não há o que colorir.");
+                return;
+            }
+
+            var resumir = ResumidorAtual();
+
+            _despachante.Executar(app =>
+            {
                 var uiDocumento = app.ActiveUIDocument;
 
                 if (uiDocumento == null)
+                {
+                    Informar("Abra um modelo para colorir as salas.");
                     return;
+                }
 
                 var vista = uiDocumento.ActiveView;
 
                 if (!PintorDeAmbientes.VistaAceitaPintura(vista))
                 {
-                    TextoStatus.Text = $"A vista ativa (\"{vista.Name}\") não aceita pintura; abra uma planta ou vista 3D para usar a linha do tempo.";
+                    Informar($"A vista ativa (\"{vista.Name}\") não aceita cores; use uma planta, corte ou vista 3D.");
                     return;
                 }
 
-                var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, resumir);
+                int criados = SolidosTemporarios.Criar(uiDocumento.Document, vista, conjunto, resumir);
                 uiDocumento.RefreshActiveView();
 
-                TextoStatus.Text = pintura.Aviso ?? $"Modelo mostrando o estado de {descricao} em \"{vista.Name}\".";
+                Informar($"{criados} sala(s) colorida(s) temporariamente em \"{vista.Name}\" — sólidos descartáveis, nenhum parâmetro gravado. " +
+                         "As cores acompanham cada atualização e somem ao fechar o plug-in (ou em \"Remover cores temporárias\").");
+            });
+        }
+
+        private void BotaoRemoverTemporarias_Click(object sender, RoutedEventArgs evento)
+        {
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                    return;
+
+                int removidos = SolidosTemporarios.RemoverTodos(uiDocumento.Document);
+                uiDocumento.RefreshActiveView();
+                Informar(removidos == 0 ? "Não havia cores temporárias no modelo." : $"{removidos} sólido(s) temporário(s) removido(s).");
+            });
+        }
+
+        /// <summary>Apaga os sólidos temporários ao fechar a janela — a promessa de que eles não ficam no modelo.</summary>
+        private void RemoverTemporariasAoFechar()
+        {
+            PararReproducao();
+
+            _despachante.Executar(app =>
+            {
+                var documento = app.ActiveUIDocument?.Document;
+
+                if (documento != null && !documento.IsFamilyDocument)
+                    SolidosTemporarios.RemoverTodos(documento);
+            });
+        }
+
+        /// <summary>A cada ciclo, se há sólidos temporários, atualiza a cor deles. Roda em contexto da API.</summary>
+        private void RecolorirTemporarias(Autodesk.Revit.DB.Document documento, ConjuntoDeAmbientes conjunto)
+        {
+            try
+            {
+                SolidosTemporarios.Recolorir(documento, conjunto, ResumidorAtual());
+            }
+            catch (Exception excecao)
+            {
+                AcrescentarAviso("Cores temporárias: " + excecao.Message);
+            }
+        }
+
+        private void BotaoMapaTemperatura_Click(object sender, RoutedEventArgs evento) => AplicarMapaDeCalor(GrandezaDeConforto.Temperatura);
+
+        private void BotaoMapaUmidade_Click(object sender, RoutedEventArgs evento) => AplicarMapaDeCalor(GrandezaDeConforto.Umidade);
+
+        private void AplicarMapaDeCalor(GrandezaDeConforto grandeza)
+        {
+            var conjunto = _conjunto;
+
+            if (conjunto == null)
+            {
+                Informar("Aguarde a primeira atualização.");
+                return;
+            }
+
+            var resumir = ResumidorAtual();
+
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                {
+                    Informar("Abra um modelo para desenhar o mapa de calor.");
+                    return;
+                }
+
+                var vista = uiDocumento.ActiveView;
+
+                if (!PintorDeAmbientes.VistaAceitaPintura(vista))
+                {
+                    Informar($"A vista ativa (\"{vista.Name}\") não aceita o mapa; use uma planta ou vista 3D.");
+                    return;
+                }
+
+                var resultado = MapaDeCalor.Aplicar(uiDocumento.Document, vista, conjunto, resumir, grandeza);
+                uiDocumento.RefreshActiveView();
+
+                string unidade = grandeza == GrandezaDeConforto.Umidade ? "%" : "°C";
+                string faixa = resultado.Salas == 0
+                    ? string.Empty
+                    : $" Faixa desenhada: {resultado.Minimo:0.0}–{resultado.Maximo:0.0} {unidade}.";
+                string observacao = resultado.Aviso == null ? string.Empty : " " + resultado.Aviso;
+
+                Informar($"Mapa de calor de {EsquemaDeCoresDeConforto.Descrever(grandeza).ToLowerInvariant()} em \"{vista.Name}\": " +
+                         $"{resultado.Salas} sala(s).{faixa} A legenda é a do estilo de análise \"{MapaDeCalor.NomeDoResultado(grandeza)}\".{observacao}");
+            });
+        }
+
+        private void BotaoRemoverMapa_Click(object sender, RoutedEventArgs evento)
+        {
+            _despachante.Executar(app =>
+            {
+                var uiDocumento = app.ActiveUIDocument;
+
+                if (uiDocumento == null)
+                    return;
+
+                bool havia = MapaDeCalor.Remover(uiDocumento.Document, uiDocumento.ActiveView);
+                uiDocumento.RefreshActiveView();
+                Informar(havia ? $"Mapa de calor removido de \"{uiDocumento.ActiveView.Name}\"." : "Esta vista não tem mapa de calor.");
             });
         }
 

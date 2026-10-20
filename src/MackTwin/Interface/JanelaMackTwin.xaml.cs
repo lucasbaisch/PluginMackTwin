@@ -110,6 +110,7 @@ namespace MackTwin.Interface
         {
             _temporizador.Stop();
             _cancelamento?.Cancel();
+            RemoverTemporariasAoFechar();
             _uiApp.SelectionChanged -= SelecaoNoRevitAlterada;
             _despachante.Falhou -= DespachanteFalhou;
             Dispatcher.UnhandledException -= DispatcherFalhou;
@@ -225,6 +226,9 @@ namespace MackTwin.Interface
             _ultimoTituloDoModelo = uiDocumento?.Document.Title;
 
             ExibirConjunto(conjunto, casados, rooms, _ultimoTituloDoModelo, erroDeCasamento);
+
+            if (uiDocumento != null && !uiDocumento.Document.IsFamilyDocument)
+                RecolorirTemporarias(uiDocumento.Document, conjunto);
         }
 
         // ── Exibição do conjunto ─────────────────────────────────────────

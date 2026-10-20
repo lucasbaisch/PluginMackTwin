@@ -7,6 +7,11 @@ e **a sala pintada no próprio modelo** pela faixa de conforto. A aba Modelo tam
 **vídeo do último dia** (a vista 3D de conforto a cada hora das últimas 24 h, como o estudo solar
 nativo — GIF animado + quadros PNG em `Documentos\MackTwin`) e gera a **folha para impressão**
 (uma por nível: plantas de temperatura e de umidade lado a lado, cada uma com a sua legenda).
+Ainda na aba Modelo: **cores temporárias** (sólidos descartáveis com a forma de cada sala,
+coloridos por sobreposição, sem gravar parâmetro; somem ao fechar), **mapa de calor no piso**
+(AVF, temperatura ou umidade, constante por sala, com legenda em gradiente) e a **linha do tempo**
+das últimas 24 h, arrastável ou reproduzida a meio segundo por hora. Clicar num Room no modelo
+seleciona a sala no painel.
 
 Universidade Presbiteriana Mackenzie / Limiar.
 

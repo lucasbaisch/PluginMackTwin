@@ -231,6 +231,12 @@ namespace MackTwin.Configuracao
         /// <summary>Transação que cria a vista 3D de conforto.</summary>
         public const string NomeDaTransacaoDeVista = "MackTwin — Gerar vista 3D de conforto";
 
+        /// <summary>Transação dos sólidos temporários (criar, recolorir, apagar).</summary>
+        public const string NomeDaTransacaoDeTemporarios = "MackTwin — Cores temporárias";
+
+        /// <summary>Transação do mapa de calor (AVF) no piso.</summary>
+        public const string NomeDaTransacaoDeMapaDeCalor = "MackTwin — Mapa de calor no piso";
+
         /// <summary>
         /// Transparência (0–100) aplicada a paredes, pisos, portas e janelas na vista 3D de
         /// conforto, para que os volumes coloridos das salas fiquem visíveis de fora.
@@ -354,6 +360,9 @@ namespace MackTwin.Configuracao
 
         /// <summary>Tempo do último quadro, mais longo, para o olho registrar o estado atual antes do laço.</summary>
         public const int AtrasoDoUltimoQuadroEmCentesimos = 200;
+
+        /// <summary>Intervalo da reprodução automática da linha do tempo, em milissegundos por hora (escolha do usuário: 0,5 s).</summary>
+        public const int IntervaloDeReproducaoEmMilissegundos = 500;
 
         /// <summary>Nome do GIF gravado na pasta da exportação.</summary>
         public const string NomeDoGif = "MackTwin_ultimo_dia.gif";
