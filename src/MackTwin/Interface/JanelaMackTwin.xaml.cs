@@ -23,26 +23,27 @@ using EventosDaUI = Autodesk.Revit.UI.Events;
 namespace MackTwin.Interface
 {
     /// <summary>
-    /// O painel de sensores por ambiente: lista de salas à esquerda, três visualizações da sala
-    /// escolhida no centro (cartões ao vivo, série temporal, a sala no modelo) e o cadastro de
-    /// planilhas à direita.
+    /// O painel de sensores por ambiente: lista de salas à esquerda e três visualizações da
+    /// sala escolhida à direita (cartões ao vivo, série temporal, a sala no modelo).
     /// </summary>
     /// <remarks>
+    /// <b>Um estado global: Visualizar ou Editar.</b> O interruptor "Editar" do cabeçalho é a
+    /// única chave. Desligado, a janela só mostra salas e leituras. Ligado, cada cartão de sala
+    /// passa a cadastrar as SUAS planilhas — o selecionado com o cadastro completo (ativar,
+    /// editar, remover, adicionar), os demais com um resumo e o "+ adicionar". A planilha nasce
+    /// marcada com a sala em que foi cadastrada; as sem marca aparecem na sala que os seus
+    /// HOSTNAMEs alimentam, e as que não alimentam sala alguma ficam em "Sem sala", à espera de
+    /// atribuição. Nada disso muda como as leituras são distribuídas: continua pelo HOSTNAME.
+    ///
     /// <b>Dois relógios, duas direções.</b> O <see cref="DispatcherTimer"/> puxa as planilhas a
     /// cada minuto e refaz a lista; o evento <c>SelectionChanged</c> do Revit empurra para o
     /// painel a sala que o usuário clicou no modelo. Nenhum dos dois roda em contexto da API,
     /// então o que precisa do Revit (ler Rooms, pintar, gerar vista) entra pelo
-    /// <see cref="DespachanteDoRevit"/>, que executa na thread da interface — por isso os
-    /// handlers podem tocar os controles diretamente.
-    ///
-    /// <b>A janela de tempo é uma só</b> para as três visualizações: a cor da lista, a
-    /// classificação do cabeçalho, o gráfico e a pintura no modelo usam o mesmo resumo,
-    /// recalculado quando a janela muda — sem baixar nada de novo.
+    /// <see cref="DespachanteDoRevit"/>, que executa na thread da interface.
     ///
     /// <b>Rede de segurança.</b> Uma exceção não tratada na thread de interface derruba o Revit
-    /// inteiro — aconteceu com o gráfico. <see cref="DispatcherFalhou"/> intercepta as que vêm
-    /// do MackTwin, registra nos avisos e marca como tratadas; as do próprio Revit seguem com o
-    /// Revit.
+    /// inteiro. <see cref="DispatcherFalhou"/> intercepta as que vêm do MackTwin, registra nos
+    /// avisos e marca como tratadas; as do próprio Revit seguem com o Revit.
     /// </remarks>
     public partial class JanelaMackTwin : Window
     {
@@ -74,8 +75,10 @@ namespace MackTwin.Interface
         private int _ultimoTotalDeRooms;
         private string? _ultimoTituloDoModelo;
         private bool _atualizando;
-        private bool _carregandoPlanilhas;
         private CancellationTokenSource? _cancelamento;
+
+        /// <summary>O estado global: true = Editar, false = Visualizar.</summary>
+        private bool ModoEdicao => InterruptorDeEdicao.IsChecked == true;
 
         // ── Construtor ───────────────────────────────────────────────────
 
@@ -96,7 +99,6 @@ namespace MackTwin.Interface
 
             InicializarSeletorDeJanela();
             InicializarLegenda();
-            ExibirPlanilhas();
 
             _despachante.Falhou += DespachanteFalhou;
             _uiApp.SelectionChanged += SelecaoNoRevitAlterada;
@@ -119,6 +121,24 @@ namespace MackTwin.Interface
             _uiApp.SelectionChanged -= SelecaoNoRevitAlterada;
             _despachante.Falhou -= DespachanteFalhou;
             Dispatcher.UnhandledException -= DispatcherFalhou;
+        }
+
+        // ── Estado global: Visualizar / Editar ───────────────────────────
+
+        private void InterruptorDeEdicao_Alterado(object sender, RoutedEventArgs evento)
+        {
+            bool editar = ModoEdicao;
+
+            TextoTituloDeSalas.Text = editar ? "SALAS  ·  MODO EDIÇÃO" : "SALAS";
+            TextoDicaDeEdicao.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
+            PainelDePlanilhasSemSala.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
+            TextoEditar.Foreground = editar ? (Brush)FindResource("BrushBrand") : (Brush)FindResource("BrushTx3");
+            TextoEditar.FontWeight = editar ? FontWeights.Bold : FontWeights.Normal;
+
+            if (editar && _registro.PlanilhasSemSala(_conjunto?.SalasPorPlanilha).Count > 0)
+                ExpansorSemSala.IsExpanded = true;
+
+            ReexibirConjunto();
         }
 
         // ── Ciclo de atualização ─────────────────────────────────────────
@@ -200,18 +220,34 @@ namespace MackTwin.Interface
 
         // ── Exibição do conjunto ─────────────────────────────────────────
 
+        /// <summary>Refaz a lista com o conjunto já carregado — sem baixar nada.</summary>
+        private void ReexibirConjunto()
+        {
+            if (_conjunto == null)
+                return;
+
+            int casados = _conjunto.Ambientes.Count(ambiente => ambiente.CasadoComOModelo);
+            ExibirConjunto(_conjunto, casados, _ultimoTotalDeRooms, _ultimoTituloDoModelo, null);
+        }
+
         private void ExibirConjunto(
             ConjuntoDeAmbientes conjunto, int casados, int rooms, string? tituloDoModelo, string? erroDeCasamento)
         {
             string? codigoSelecionado = (ListaDeAmbientes.SelectedItem as LinhaDeAmbiente)?.Codigo;
             TimeSpan? janela = JanelaSelecionada;
+            bool editar = ModoEdicao;
 
             _linhas = conjunto.Ambientes
-                .Select(ambiente => new LinhaDeAmbiente(ambiente, CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela)))
+                .Select(ambiente => new LinhaDeAmbiente(
+                    ambiente,
+                    CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela),
+                    _registro.PlanilhasDaSala(ambiente.Codigo, conjunto.SalasPorPlanilha),
+                    editar))
                 .ToList();
 
             ListaDeAmbientes.ItemsSource = _linhas;
             ListaDeSensoresSemSala.ItemsSource = conjunto.SensoresSemSala.Select(DescreverSensorSemSala).ToList();
+            ListaDePlanilhasSemSala.ItemsSource = _registro.PlanilhasSemSala(conjunto.SalasPorPlanilha);
 
             TextoStatus.Text = string.Format(CultureInfo.CurrentCulture,
                 "Atualizado às {0:HH:mm:ss} — {1} sala(s), {2} sensor(es), {3:N0} leitura(s).{4}",
@@ -285,7 +321,7 @@ namespace MackTwin.Interface
                 TextoResumoDaSala.Text = _conjunto == null
                     ? "Aguardando a primeira atualização…"
                     : "Nenhum HOSTNAME das planilhas segue o padrão de sala (ex.: MMCCTLAB001-001). " +
-                      "Veja \"Sensores sem sala\".";
+                      "Veja \"Sem sala\".";
                 return;
             }
 
@@ -358,12 +394,8 @@ namespace MackTwin.Interface
 
         private void SeletorDeJanela_SelectionChanged(object sender, SelectionChangedEventArgs evento)
         {
-            if (_conjunto == null)
-                return;
-
             // A janela muda o resumo (e a cor) de todas as salas: refaz as linhas sem baixar nada.
-            int casados = _conjunto.Ambientes.Count(ambiente => ambiente.CasadoComOModelo);
-            ExibirConjunto(_conjunto, casados, _ultimoTotalDeRooms, _ultimoTituloDoModelo, null);
+            ReexibirConjunto();
         }
 
         private static ClassificacaoDeConforto Classificar(Ambiente ambiente, TimeSpan? janela)
@@ -607,41 +639,30 @@ namespace MackTwin.Interface
             });
         }
 
-        // ── Planilhas ────────────────────────────────────────────────────
+        // ── Planilhas: cadastro dentro de cada sala (modo Editar) ────────
 
-        private void ExibirPlanilhas()
+        /// <summary>O objeto que o botão carrega: o Tag, ou o DataContext do item.</summary>
+        private static T? Contexto<T>(object sender) where T : class
         {
-            _carregandoPlanilhas = true;
-            ListaDePlanilhas.ItemsSource = null;
-            ListaDePlanilhas.ItemsSource = _registro.Planilhas.ToList();
-            _carregandoPlanilhas = false;
+            var elemento = sender as FrameworkElement;
+            return elemento?.Tag as T ?? elemento?.DataContext as T;
         }
 
-        private void PlanilhaAtivaAlterada(object sender, RoutedEventArgs evento)
+        private async void AdicionarPlanilhaNaSala_Click(object sender, RoutedEventArgs evento)
         {
-            if (_carregandoPlanilhas)
+            if (Contexto<LinhaDeAmbiente>(sender) is not { } linha)
                 return;
 
-            try
-            {
-                _registro.Salvar();
-            }
-            catch (Exception excecao)
-            {
-                AcrescentarAviso("Não foi possível gravar o cadastro de planilhas: " + excecao.Message);
-            }
-        }
+            ListaDeAmbientes.SelectedItem = linha;
 
-        private async void BotaoAdicionarPlanilha_Click(object sender, RoutedEventArgs evento)
-        {
-            var dialogo = new JanelaDeCadastroDePlanilha { Owner = this };
+            var dialogo = new JanelaDeCadastroDePlanilha(linha.Codigo, null) { Owner = this };
 
             if (dialogo.ShowDialog() != true)
                 return;
 
             try
             {
-                _registro.Adicionar(dialogo.Nome, dialogo.Url);
+                _registro.Adicionar(dialogo.Nome, dialogo.Url, linha.Codigo);
             }
             catch (Exception excecao)
             {
@@ -649,17 +670,40 @@ namespace MackTwin.Interface
                 return;
             }
 
-            ExibirPlanilhas();
+            Informar($"Planilha \"{dialogo.Nome}\" cadastrada na sala {linha.Codigo}.");
             await AtualizarAsync();
         }
 
-        private async void BotaoRemoverPlanilha_Click(object sender, RoutedEventArgs evento)
+        private async void EditarPlanilha_Click(object sender, RoutedEventArgs evento)
         {
-            if (ListaDePlanilhas.SelectedItem is not PlanilhaRegistrada planilha)
+            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
+                return;
+
+            var dialogo = new JanelaDeCadastroDePlanilha(planilha.Sala, planilha) { Owner = this };
+
+            if (dialogo.ShowDialog() != true)
+                return;
+
+            planilha.Nome = dialogo.Nome;
+            planilha.Url = dialogo.Url;
+
+            try
             {
-                MessageBox.Show(this, "Selecione a planilha a remover.", "Remover planilha", MessageBoxButton.OK, MessageBoxImage.Information);
+                _registro.Salvar();
+            }
+            catch (Exception excecao)
+            {
+                MessageBox.Show(this, excecao.Message, "Editar planilha", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+
+            await AtualizarAsync();
+        }
+
+        private async void RemoverPlanilha_Click(object sender, RoutedEventArgs evento)
+        {
+            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
+                return;
 
             var resposta = MessageBox.Show(this, $"Remover \"{planilha.Nome}\" do cadastro?", "Remover planilha",
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -677,8 +721,51 @@ namespace MackTwin.Interface
                 return;
             }
 
-            ExibirPlanilhas();
             await AtualizarAsync();
+        }
+
+        /// <summary>Planilha sem sala: passa a pertencer à sala selecionada na lista.</summary>
+        private void AtribuirPlanilha_Click(object sender, RoutedEventArgs evento)
+        {
+            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
+                return;
+
+            if (ListaDeAmbientes.SelectedItem is not LinhaDeAmbiente linha)
+            {
+                Informar("Selecione na lista a sala à qual a planilha pertence e clique de novo em \"atribuir\".");
+                return;
+            }
+
+            planilha.Sala = linha.Codigo;
+
+            try
+            {
+                _registro.Salvar();
+            }
+            catch (Exception excecao)
+            {
+                AcrescentarAviso("Não foi possível gravar o cadastro de planilhas: " + excecao.Message);
+            }
+
+            Informar($"Planilha \"{planilha.Nome}\" atribuída à sala {linha.Codigo}.");
+            ReexibirConjunto();
+        }
+
+        private void PlanilhaAtivaAlterada(object sender, RoutedEventArgs evento)
+        {
+            // O evento também dispara quando o binding aplica o valor inicial, antes de o
+            // controle carregar; só a mudança feita pelo usuário merece ida ao disco.
+            if (sender is CheckBox { IsLoaded: false })
+                return;
+
+            try
+            {
+                _registro.Salvar();
+            }
+            catch (Exception excecao)
+            {
+                AcrescentarAviso("Não foi possível gravar o cadastro de planilhas: " + excecao.Message);
+            }
         }
 
         // ── Legenda ──────────────────────────────────────────────────────

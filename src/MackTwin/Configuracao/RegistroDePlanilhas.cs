@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackTwin.Dominio;
 
 namespace MackTwin.Configuracao
 {
@@ -19,6 +20,17 @@ namespace MackTwin.Configuracao
         /// <summary>Se entra no ciclo de atualização. Desativar preserva o cadastro sem baixar.</summary>
         public bool Ativa { get; set; } = true;
 
+        /// <summary>
+        /// Código normalizado da sala em que a planilha foi cadastrada, ou null quando a sala é
+        /// inferida pelos HOSTNAMEs dos sensores que ela traz.
+        /// </summary>
+        /// <remarks>
+        /// É uma marca de CADASTRO, não um filtro: as leituras continuam sendo distribuídas pela
+        /// sala codificada em cada HOSTNAME. Uma planilha marcada como LAB001 que traga um sensor
+        /// MMCCTLAB002-001 alimenta LAB002 normalmente.
+        /// </remarks>
+        public string? Sala { get; set; }
+
         public override string ToString() => Nome;
     }
 
@@ -27,13 +39,13 @@ namespace MackTwin.Configuracao
     /// usuário (<see cref="ConfiguracaoDeArmazenamento"/>).
     /// </summary>
     /// <remarks>
-    /// Começa com a planilha do DHT22 e cresce pela própria interface do plug-in, à medida que
-    /// outros sensores — em outras planilhas ou pastas — forem instalados. Usa
-    /// <c>System.Text.Json</c>, que já vem no .NET 8: nenhum pacote novo.
+    /// Começa com a planilha do DHT22 e cresce pela própria interface do plug-in, sala por sala.
+    /// Usa <c>System.Text.Json</c>, que já vem no .NET 8: nenhum pacote novo.
     ///
     /// A leitura é tolerante: arquivo ausente, vazio ou corrompido devolve o cadastro padrão e
     /// registra um aviso, em vez de derrubar a abertura da janela. O cadastro em disco só é
-    /// sobrescrito por uma ação explícita do usuário (adicionar, remover, ativar/desativar).
+    /// sobrescrito por uma ação explícita do usuário (adicionar, editar, remover, atribuir,
+    /// ativar/desativar).
     /// </remarks>
     public sealed class RegistroDePlanilhas
     {
@@ -41,6 +53,7 @@ namespace MackTwin.Configuracao
         {
             WriteIndented = true,
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
 
         /// <summary>Todas as planilhas cadastradas, ativas ou não, na ordem de cadastro.</summary>
@@ -51,7 +64,7 @@ namespace MackTwin.Configuracao
         public IEnumerable<PlanilhaRegistrada> Ativas =>
             Planilhas.Where(p => p.Ativa && !string.IsNullOrWhiteSpace(p.Url));
 
-        /// <summary>Cadastro inicial: só a planilha do DHT22.</summary>
+        /// <summary>Cadastro inicial: só a planilha do DHT22, sem sala marcada (inferida pelos HOSTNAMEs).</summary>
         public static RegistroDePlanilhas Padrao()
         {
             return new RegistroDePlanilhas
@@ -89,6 +102,9 @@ namespace MackTwin.Configuracao
                     return Padrao();
                 }
 
+                foreach (var planilha in registro.Planilhas)
+                    planilha.Sala = NormalizarSala(planilha.Sala);
+
                 return registro;
             }
             catch (Exception excecao)
@@ -107,13 +123,14 @@ namespace MackTwin.Configuracao
                 JsonSerializer.Serialize(this, Opcoes));
         }
 
-        /// <summary>Acrescenta uma planilha e grava. A validação da URL é do chamador.</summary>
-        public PlanilhaRegistrada Adicionar(string nome, string url)
+        /// <summary>Acrescenta uma planilha, marcada com a sala informada (ou sem marca), e grava.</summary>
+        public PlanilhaRegistrada Adicionar(string nome, string url, string? sala = null)
         {
             var planilha = new PlanilhaRegistrada
             {
                 Nome = string.IsNullOrWhiteSpace(nome) ? $"Planilha {Planilhas.Count + 1}" : nome.Trim(),
                 Url = url.Trim(),
+                Sala = NormalizarSala(sala),
             };
 
             Planilhas.Add(planilha);
@@ -130,6 +147,64 @@ namespace MackTwin.Configuracao
                 Salvar();
 
             return removida;
+        }
+
+        // ── Planilhas por sala ───────────────────────────────────────────
+
+        /// <summary>
+        /// As planilhas de uma sala: as marcadas com ela no cadastro, mais as sem marca cujos
+        /// sensores (pelo HOSTNAME) alimentam essa sala.
+        /// </summary>
+        /// <param name="codigo">Código da sala, em qualquer grafia aceita por <see cref="CodigoDeSala"/>.</param>
+        /// <param name="salasDetectadas">
+        /// Por URL de planilha, os códigos de sala encontrados nas leituras do último ciclo
+        /// (<see cref="ConjuntoDeAmbientes.SalasPorPlanilha"/>). Pode ser null antes do primeiro ciclo.
+        /// </param>
+        public IReadOnlyList<PlanilhaRegistrada> PlanilhasDaSala(
+            string? codigo,
+            IReadOnlyDictionary<string, IReadOnlyCollection<string>>? salasDetectadas)
+        {
+            string normalizado = CodigoDeSala.Normalizar(codigo);
+
+            if (normalizado.Length == 0)
+                return Array.Empty<PlanilhaRegistrada>();
+
+            return Planilhas
+                .Where(p => NormalizarSala(p.Sala) == normalizado
+                            || (p.Sala == null && AlimentaASala(p, normalizado, salasDetectadas)))
+                .ToList();
+        }
+
+        /// <summary>
+        /// As planilhas sem marca de sala que também não alimentam sala alguma — por exemplo,
+        /// uma que falhou ao baixar ou cujos HOSTNAMEs não seguem o padrão.
+        /// </summary>
+        public IReadOnlyList<PlanilhaRegistrada> PlanilhasSemSala(
+            IReadOnlyDictionary<string, IReadOnlyCollection<string>>? salasDetectadas)
+        {
+            return Planilhas
+                .Where(p => p.Sala == null
+                            && !(salasDetectadas != null
+                                 && salasDetectadas.TryGetValue(p.Url, out var salas)
+                                 && salas.Count > 0))
+                .ToList();
+        }
+
+        /// <summary>Código de sala normalizado, ou null quando vazio.</summary>
+        public static string? NormalizarSala(string? sala)
+        {
+            string normalizado = CodigoDeSala.Normalizar(sala);
+            return normalizado.Length == 0 ? null : normalizado;
+        }
+
+        private static bool AlimentaASala(
+            PlanilhaRegistrada planilha,
+            string codigo,
+            IReadOnlyDictionary<string, IReadOnlyCollection<string>>? salasDetectadas)
+        {
+            return salasDetectadas != null
+                   && salasDetectadas.TryGetValue(planilha.Url, out var salas)
+                   && salas.Contains(codigo);
         }
     }
 }

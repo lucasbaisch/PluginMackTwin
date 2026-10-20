@@ -21,7 +21,9 @@ namespace MackTwin.Processamento
     ///
     /// Uma planilha que falha não derruba as outras: o erro vira aviso, a contagem vai para
     /// <see cref="ConjuntoDeAmbientes.PlanilhasComFalha"/> e as salas das planilhas que
-    /// responderam são exibidas normalmente.
+    /// responderam são exibidas normalmente. Para cada planilha o monitor anota que salas ela
+    /// alimentou (<see cref="ConjuntoDeAmbientes.SalasPorPlanilha"/>), o que permite listar a
+    /// planilha dentro da sala certa mesmo sem marca de cadastro.
     /// </remarks>
     public sealed class MonitorDePlanilhas
     {
@@ -53,19 +55,28 @@ namespace MackTwin.Processamento
         {
             var avisos = new List<string>();
             var leituras = new List<Leitura>();
+            var salasPorPlanilha = new Dictionary<string, IReadOnlyCollection<string>>();
             int falhas = 0;
 
             var ativas = Registro.Ativas.ToList();
 
             if (ativas.Count == 0)
-                avisos.Add("Nenhuma planilha ativa cadastrada. Use \"Adicionar planilha\" para começar.");
+                avisos.Add("Nenhuma planilha ativa cadastrada. Ligue \"Editar\" e use \"+ adicionar\" na sala.");
 
             foreach (var planilha in ativas)
             {
                 try
                 {
-                    avisos.Add($"— {planilha.Nome}");
-                    leituras.AddRange(await _leitor.BaixarELerAsync(planilha.Url, avisos, cancelamento).ConfigureAwait(false));
+                    avisos.Add($"— {planilha.Nome}" + (planilha.Sala != null ? $" (sala {planilha.Sala})" : string.Empty));
+
+                    var daPlanilha = await _leitor.BaixarELerAsync(planilha.Url, avisos, cancelamento).ConfigureAwait(false);
+                    leituras.AddRange(daPlanilha);
+
+                    salasPorPlanilha[planilha.Url] = daPlanilha
+                        .Select(leitura => AnalisadorDeHostname.ExtrairCodigoDaSala(leitura.Hostname))
+                        .Where(codigo => codigo.Length > 0)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToList();
                 }
                 catch (OperationCanceledException)
                 {
@@ -80,6 +91,7 @@ namespace MackTwin.Processamento
 
             var conjunto = AgrupadorDeAmbientes.Agrupar(leituras, avisos);
             conjunto.PlanilhasComFalha = falhas;
+            conjunto.SalasPorPlanilha = salasPorPlanilha;
 
             UltimoConjunto = conjunto;
             UltimaAtualizacao = DateTime.Now;

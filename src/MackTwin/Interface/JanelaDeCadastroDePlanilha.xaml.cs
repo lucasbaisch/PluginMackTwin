@@ -2,18 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using MackTwin.Configuracao;
 using MackTwin.Parsing;
 using MackTwin.Processamento;
 
 namespace MackTwin.Interface
 {
     /// <summary>
-    /// Diálogo que cadastra uma planilha nova: nome, endereço e um teste de conexão que mostra
-    /// quantas leituras e quais salas a planilha traz antes de salvar.
+    /// Diálogo que cadastra ou edita uma planilha: nome, endereço e um teste de conexão que
+    /// mostra quantas leituras e quais salas a planilha traz antes de salvar.
     /// </summary>
     /// <remarks>
-    /// O teste existe para que o erro mais comum — planilha não compartilhada publicamente —
-    /// apareça aqui, com a explicação do leitor, e não como uma sala que nunca chega ao painel.
+    /// Aberto de dentro do cartão de uma sala, diz no topo a que sala a planilha vai pertencer —
+    /// é o que torna a associação óbvia para quem cadastra. O teste existe para que o erro mais
+    /// comum — planilha não compartilhada publicamente — apareça aqui, com a explicação do
+    /// leitor, e não como uma sala que nunca chega ao painel.
     /// </remarks>
     public partial class JanelaDeCadastroDePlanilha : Window
     {
@@ -23,10 +26,35 @@ namespace MackTwin.Interface
         /// <summary>Endereço informado, aparado.</summary>
         public string Url => CaixaUrl.Text.Trim();
 
-        public JanelaDeCadastroDePlanilha()
+        /// <summary>
+        /// Monta o diálogo para a sala informada; com <paramref name="existente"/>, em modo de edição.
+        /// </summary>
+        /// <param name="sala">Código da sala a que a planilha pertence, ou null.</param>
+        /// <param name="existente">Planilha a editar, ou null para cadastrar uma nova.</param>
+        public JanelaDeCadastroDePlanilha(string? sala = null, PlanilhaRegistrada? existente = null)
         {
             InitializeComponent();
-            Loaded += (s, e) => CaixaNome.Focus();
+
+            string? codigo = RegistroDePlanilhas.NormalizarSala(sala);
+
+            if (existente != null)
+            {
+                Title = "Editar planilha";
+                BotaoSalvar.Content = "Salvar alterações";
+                CaixaNome.Text = existente.Nome;
+                CaixaUrl.Text = existente.Url;
+            }
+            else if (codigo != null)
+            {
+                Title = $"Adicionar planilha a {codigo}";
+            }
+
+            TextoSala.Text = codigo != null
+                ? $"Sala {codigo}. A planilha fica cadastrada nesta sala; sensores de outras salas que ela " +
+                  "trouxer (pelo HOSTNAME) continuam indo para as salas deles."
+                : "Sem sala definida: a sala será inferida pelo HOSTNAME dos sensores da planilha.";
+
+            Loaded += (remetente, evento) => CaixaNome.Focus();
         }
 
         private async void BotaoTestar_Click(object sender, RoutedEventArgs evento)

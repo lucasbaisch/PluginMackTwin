@@ -25,6 +25,13 @@ namespace MackTwin.Dominio
         /// <summary>Quantas planilhas cadastradas falharam ao baixar neste ciclo.</summary>
         public int PlanilhasComFalha { get; set; }
 
+        /// <summary>
+        /// Por URL de planilha cadastrada, os códigos de sala que as suas leituras alimentaram
+        /// neste ciclo — é o que permite dizer "esta planilha é da sala LAB001" sem cadastro.
+        /// </summary>
+        public IReadOnlyDictionary<string, IReadOnlyCollection<string>> SalasPorPlanilha { get; set; } =
+            new Dictionary<string, IReadOnlyCollection<string>>();
+
         /// <summary>Total de leituras em todas as salas e sensores sem sala.</summary>
         public int TotalDeLeituras =>
             Ambientes.Sum(ambiente => ambiente.Sensores.Sum(sensor => sensor.Leituras.Count))

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MackTwin — Painel de sensores por ambiente"
         Height="800" Width="1240"
-        MinHeight="640" MinWidth="1000"
+        MinHeight="640" MinWidth="960"
         WindowStartupLocation="CenterScreen" ShowInTaskbar="False"
         Background="#F5F5F7" FontFamily="Segoe UI" FontSize="12"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True">
@@ -14,6 +14,7 @@
         <SolidColorBrush x:Key="BrushSurface"   Color="#FFFFFF"/>
         <SolidColorBrush x:Key="BrushSubtle"    Color="#FAFAFB"/>
         <SolidColorBrush x:Key="BrushBd"        Color="#E6E6EA"/>
+        <SolidColorBrush x:Key="BrushBdBrand"   Color="#F0C4C8"/>
         <SolidColorBrush x:Key="BrushTx"        Color="#1C1C1E"/>
         <SolidColorBrush x:Key="BrushTx2"       Color="#4A4A52"/>
         <SolidColorBrush x:Key="BrushTx3"       Color="#8A8A94"/>
@@ -65,6 +66,11 @@
             </Setter>
         </Style>
 
+        <Style x:Key="EstiloBotaoPrincipalCompacto" TargetType="Button" BasedOn="{StaticResource EstiloBotaoPrincipal}">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Padding" Value="10,7"/>
+        </Style>
+
         <Style x:Key="EstiloBotaoSecundario" TargetType="Button">
             <Setter Property="Foreground" Value="{StaticResource BrushTx}"/>
             <Setter Property="FontSize" Value="12"/>
@@ -87,6 +93,72 @@
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Foreground" Value="#9A9AA3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Botão-texto (ex.: "+ adicionar") e botão-ícone (✎ ✕) dentro dos cartões -->
+        <Style x:Key="EstiloBotaoLink" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource BrushBrand}"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter x:Name="Conteudo" VerticalAlignment="Center"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource BrushBrandDark}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EstiloBotaoIcone" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource BrushTx3}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="5,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource BrushBrand}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Interruptor "Editar": o estado global da janela ──────────── -->
+        <Style x:Key="EstiloInterruptor" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Trilho" Width="44" Height="24" CornerRadius="12" Background="#D9D9DE">
+                            <Ellipse x:Name="Botao" Width="18" Height="18" Fill="White"
+                                     HorizontalAlignment="Left" Margin="3,0,3,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Trilho" Property="Background" Value="{StaticResource BrushBrand}"/>
+                                <Setter TargetName="Botao" Property="HorizontalAlignment" Value="Right"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Trilho" Property="Opacity" Value="0.9"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -117,6 +189,34 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Partes do cartão que só existem no modo Editar: o rodapé compacto nos cartões
+             não selecionados e o cadastro completo no cartão selecionado. -->
+        <Style x:Key="EstiloRodapeCompacto" TargetType="StackPanel">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding ModoEdicao}" Value="True"/>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible"/>
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="EstiloCadastroDaSala" TargetType="StackPanel">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding ModoEdicao}" Value="True"/>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Visibility" Value="Visible"/>
+                </MultiDataTrigger>
+            </Style.Triggers>
         </Style>
 
         <!-- ── Abas: texto com sublinhado vermelho na ativa ──────────────── -->
@@ -154,7 +254,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ── Cabeçalho: logo Mackenzie · título · controles · logo Limiar ── -->
+        <!-- ── Cabeçalho: logo Mackenzie · título · interruptor e controles · logo Limiar ── -->
         <Border Grid.Row="0" Style="{StaticResource EstiloCartao}" Padding="18,12">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -182,6 +282,12 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,18,0">
+                    <TextBlock x:Name="TextoEditar" Text="Editar" Foreground="{StaticResource BrushTx3}"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ToggleButton x:Name="InterruptorDeEdicao" Style="{StaticResource EstiloInterruptor}"
+                                  Margin="0,0,18,0" VerticalAlignment="Center"
+                                  ToolTip="Modo Editar: cadastre as planilhas dentro das salas"
+                                  Checked="InterruptorDeEdicao_Alterado" Unchecked="InterruptorDeEdicao_Alterado"/>
                     <ProgressBar x:Name="Spinner" Width="110" Height="3" IsIndeterminate="True"
                                  Foreground="{StaticResource BrushBrand}" BorderThickness="0"
                                  Visibility="Collapsed" Margin="0,0,14,0" VerticalAlignment="Center"/>
@@ -197,31 +303,61 @@
             </Grid>
         </Border>
 
-        <!-- ── Corpo ───────────────────────────────────────────────────── -->
+        <!-- ── Corpo: Salas | Ambiente ──────────────────────────────────── -->
         <Grid Grid.Row="1" Margin="0,14,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="330"/>
                 <ColumnDefinition Width="14"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="260"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Salas -->
+            <!-- Salas (no modo Editar, cada cartão cadastra as suas planilhas) -->
             <Border Grid.Column="0" Style="{StaticResource EstiloCartao}">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="SALAS" Style="{StaticResource EstiloTituloDeSecao}"/>
-                    <Expander DockPanel.Dock="Bottom" Header="Sensores sem sala" Margin="0,8,0,0"
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock x:Name="TextoTituloDeSalas" Text="SALAS" Style="{StaticResource EstiloTituloDeSecao}"/>
+                        <TextBlock x:Name="TextoDicaDeEdicao" Visibility="Collapsed" TextWrapping="Wrap"
+                                   Text="Cadastre as planilhas dentro da sala a que pertencem."
+                                   FontSize="10.5" Foreground="{StaticResource BrushBrandDark}" Margin="0,-6,0,10"/>
+                    </StackPanel>
+
+                    <Expander DockPanel.Dock="Bottom" x:Name="ExpansorSemSala" Header="Sem sala" Margin="0,8,0,0"
                               Foreground="{StaticResource BrushTx2}">
-                        <ItemsControl x:Name="ListaDeSensoresSemSala" Margin="0,6,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource BrushTx3}"
-                                               TextWrapping="Wrap" Margin="0,0,0,4"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel Margin="0,6,0,0">
+                            <TextBlock Text="SENSORES" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,0,0,4"/>
+                            <ItemsControl x:Name="ListaDeSensoresSemSala">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource BrushTx3}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel x:Name="PainelDePlanilhasSemSala" Visibility="Collapsed" Margin="0,8,0,0">
+                                <TextBlock Text="PLANILHAS" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,0,0,4"/>
+                                <ItemsControl x:Name="ListaDePlanilhasSemSala">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Nome}" FontSize="11" Foreground="{StaticResource BrushTx2}"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Url}" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1" Content="atribuir à sala selecionada" Style="{StaticResource EstiloBotaoLink}"
+                                                        Margin="8,0,8,0" Tag="{Binding}" Click="AtribuirPlanilha_Click"/>
+                                                <Button Grid.Column="2" Content="&#x2715;" Style="{StaticResource EstiloBotaoIcone}"
+                                                        ToolTip="Remover do cadastro" Tag="{Binding}" Click="RemoverPlanilha_Click"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
                     </Expander>
+
                     <ListBox x:Name="ListaDeAmbientes" BorderThickness="0" Background="Transparent"
                              ItemContainerStyle="{StaticResource EstiloItemDeSala}"
                              SelectionChanged="ListaDeAmbientes_SelectionChanged"
@@ -242,6 +378,49 @@
                                                    Foreground="{StaticResource BrushTx2}" Margin="0,2,0,0"/>
                                         <TextBlock Text="{Binding Casamento}" FontSize="10.5"
                                                    Foreground="{StaticResource BrushTx3}"/>
+
+                                        <!-- modo Editar, cartão NÃO selecionado -->
+                                        <StackPanel Style="{StaticResource EstiloRodapeCompacto}" Orientation="Horizontal" Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding ResumoDePlanilhas}" FontSize="10.5"
+                                                       Foreground="{StaticResource BrushTx3}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="  ·  " FontSize="10.5" Foreground="{StaticResource BrushTx3}" VerticalAlignment="Center"/>
+                                            <Button Content="+ adicionar" Style="{StaticResource EstiloBotaoLink}"
+                                                    Tag="{Binding}" Click="AdicionarPlanilhaNaSala_Click"/>
+                                        </StackPanel>
+
+                                        <!-- modo Editar, cartão selecionado: o cadastro desta sala -->
+                                        <StackPanel Style="{StaticResource EstiloCadastroDaSala}">
+                                            <Border Height="1" Background="{StaticResource BrushBdBrand}" Margin="0,10,0,8"/>
+                                            <TextBlock Text="PLANILHAS DESTA SALA" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource BrushBrandDark}" Margin="0,0,0,6"/>
+                                            <ItemsControl ItemsSource="{Binding Planilhas}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,6">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <CheckBox IsChecked="{Binding Ativa, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                      ToolTip="Ativa no ciclo de atualização"
+                                                                      Checked="PlanilhaAtivaAlterada" Unchecked="PlanilhaAtivaAlterada"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11.5"
+                                                                       Foreground="{StaticResource BrushTx}" VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Url}"/>
+                                                            <Button Grid.Column="2" Content="&#x270E;" Style="{StaticResource EstiloBotaoIcone}"
+                                                                    ToolTip="Editar nome ou endereço" Tag="{Binding}" Click="EditarPlanilha_Click"/>
+                                                            <Button Grid.Column="3" Content="&#x2715;" Style="{StaticResource EstiloBotaoIcone}"
+                                                                    ToolTip="Remover do cadastro" Tag="{Binding}" Click="RemoverPlanilha_Click"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="{Binding RotuloDeAdicionar}" Style="{StaticResource EstiloBotaoPrincipalCompacto}"
+                                                    HorizontalAlignment="Stretch" Margin="0,4,0,2"
+                                                    Tag="{Binding}" Click="AdicionarPlanilhaNaSala_Click"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
@@ -306,29 +485,6 @@
                             </StackPanel>
                         </TabItem>
                     </TabControl>
-                </DockPanel>
-            </Border>
-
-            <!-- Planilhas -->
-            <Border Grid.Column="4" Style="{StaticResource EstiloCartao}">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="PLANILHAS" Style="{StaticResource EstiloTituloDeSecao}"/>
-                    <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,-8">
-                        <Button x:Name="BotaoAdicionarPlanilha" Content="Adicionar…"
-                                Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoAdicionarPlanilha_Click"/>
-                        <Button x:Name="BotaoRemoverPlanilha" Content="Remover"
-                                Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoRemoverPlanilha_Click"/>
-                    </WrapPanel>
-                    <ListBox x:Name="ListaDePlanilhas" BorderThickness="0" Background="Transparent"
-                             ItemContainerStyle="{StaticResource EstiloItemDeSala}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{Binding Ativa, Mode=TwoWay}" Content="{Binding Nome}"
-                                          ToolTip="{Binding Url}" Foreground="{StaticResource BrushTx}"
-                                          Checked="PlanilhaAtivaAlterada" Unchecked="PlanilhaAtivaAlterada"/>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
                 </DockPanel>
             </Border>
         </Grid>

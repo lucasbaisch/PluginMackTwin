@@ -102,6 +102,7 @@ namespace MackTwin.Verificacao
             VerificarClassificacao(resultados);
             VerificarResumo(resultados);
             VerificarCores(resultados);
+            VerificarPlanilhasPorSala(resultados);
 
             return new RelatorioDeVerificacao { Resultados = resultados };
         }
@@ -495,6 +496,50 @@ namespace MackTwin.Verificacao
 
             Afirmar(resultados, "Hexadecimal malformado é recusado",
                     Lanca<ArgumentException>(() => CoresDeConforto.ParaRgb("zzz")));
+        }
+
+        // ── Planilhas por sala (cadastro no modo Editar) ─────────────────
+
+        private static void VerificarPlanilhasPorSala(List<ResultadoDeVerificacao> resultados)
+        {
+            var marcada = new PlanilhaRegistrada { Nome = "Marcada", Url = "https://docs.google.com/spreadsheets/d/A/edit", Sala = "LAB001" };
+            var inferida = new PlanilhaRegistrada { Nome = "Inferida", Url = "https://docs.google.com/spreadsheets/d/B/edit" };
+            var orfa = new PlanilhaRegistrada { Nome = "Órfã", Url = "https://docs.google.com/spreadsheets/d/C/edit" };
+
+            var registro = new RegistroDePlanilhas { Planilhas = { marcada, inferida, orfa } };
+
+            var detectadas = new Dictionary<string, IReadOnlyCollection<string>>
+            {
+                [inferida.Url] = new[] { "LAB001", "LAB002" },
+                [orfa.Url] = Array.Empty<string>(),
+            };
+
+            var deLab001 = registro.PlanilhasDaSala("lab-001", detectadas);
+
+            Afirmar(resultados, "LAB001 lista a planilha marcada com ela e a sem marca que a alimenta",
+                    deLab001.Count == 2 && deLab001.Contains(marcada) && deLab001.Contains(inferida),
+                    $"obtido {string.Join(", ", deLab001.Select(p => p.Nome))}");
+
+            var deLab002 = registro.PlanilhasDaSala("LAB002", detectadas);
+
+            Afirmar(resultados, "LAB002 lista só a planilha sem marca que a alimenta (a marcada com LAB001 fica fora)",
+                    deLab002.Count == 1 && deLab002[0] == inferida,
+                    $"obtido {string.Join(", ", deLab002.Select(p => p.Nome))}");
+
+            var semSala = registro.PlanilhasSemSala(detectadas);
+
+            Afirmar(resultados, "A planilha sem marca que não alimenta sala alguma vai para \"sem sala\"",
+                    semSala.Count == 1 && semSala[0] == orfa,
+                    $"obtido {string.Join(", ", semSala.Select(p => p.Nome))}");
+
+            Afirmar(resultados, "Antes do primeiro ciclo (sem detecção) só as marcadas têm sala; as outras ficam sem sala",
+                    registro.PlanilhasDaSala("LAB001", null).Count == 1 && registro.PlanilhasSemSala(null).Count == 2);
+
+            Afirmar(resultados, "A marca de sala é normalizada (\"lab 003\" → LAB003; vazio → nenhuma)",
+                    RegistroDePlanilhas.NormalizarSala("lab 003") == "LAB003" && RegistroDePlanilhas.NormalizarSala("  ") == null);
+
+            Afirmar(resultados, "Código de sala vazio não lista planilha nenhuma",
+                    registro.PlanilhasDaSala("", detectadas).Count == 0);
         }
 
         // ── Infraestrutura ───────────────────────────────────────────────
