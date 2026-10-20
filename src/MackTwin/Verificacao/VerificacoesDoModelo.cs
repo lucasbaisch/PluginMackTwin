@@ -269,8 +269,6 @@ namespace MackTwin.Verificacao
 
             if (reconhecido && id != null)
             {
-                Afirmar(resultados, "MMCCTLAB001-001 → instituição MM", id.Instituicao == "MM", $"obtido {id.Instituicao}");
-                Afirmar(resultados, "MMCCTLAB001-001 → unidade CCT", id.Unidade == "CCT", $"obtido {id.Unidade}");
                 Afirmar(resultados, "MMCCTLAB001-001 → sala LAB001", id.CodigoDaSala == "LAB001", $"obtido {id.CodigoDaSala}");
                 Afirmar(resultados, "MMCCTLAB001-001 → dispositivo \"001\" (zeros preservados)",
                         id.NumeroDoDispositivo == "001", $"obtido {id.NumeroDoDispositivo}");
@@ -308,14 +306,11 @@ namespace MackTwin.Verificacao
             Afirmar(resultados, "\"Lab_001.\" normaliza para LAB001", CodigoDeSala.Normalizar("Lab_001.") == "LAB001");
             Afirmar(resultados, "Nulo normaliza para vazio", CodigoDeSala.Normalizar(null).Length == 0);
 
-            Afirmar(resultados, "Room \"lab-001\" casa com o sensor LAB001",
-                    CodigoDeSala.SaoIguais("LAB001", "lab-001"));
+            Afirmar(resultados, "Room \"lab-001\" e sensor LAB001 normalizam para o mesmo código",
+                    CodigoDeSala.Normalizar("lab-001") == CodigoDeSala.Normalizar("LAB001"));
 
             Afirmar(resultados, "LAB001 e LAB1 são salas distintas (zeros à esquerda contam)",
-                    !CodigoDeSala.SaoIguais("LAB001", "LAB1"));
-
-            Afirmar(resultados, "Vazio nunca casa com nada, nem com vazio",
-                    !CodigoDeSala.SaoIguais("", "") && !CodigoDeSala.SaoIguais("LAB001", ""));
+                    CodigoDeSala.Normalizar("LAB001") != CodigoDeSala.Normalizar("LAB1"));
         }
 
         // ── Agrupamento em ambientes ─────────────────────────────────────
@@ -337,13 +332,10 @@ namespace MackTwin.Verificacao
             Afirmar(resultados, "Quatro sensores com três padrões de sala produzem 2 ambientes",
                     conjunto.Ambientes.Count == 2, $"obtido {conjunto.Ambientes.Count}");
 
-            var lab001 = conjunto.Localizar("LAB001");
+            var lab001 = conjunto.Ambientes.FirstOrDefault(a => a.Codigo == "LAB001");
 
             Afirmar(resultados, "LAB001 reúne os dois sensores -001 e -002 sem cadastro manual",
                     lab001 != null && lab001.Sensores.Count == 2, $"obtido {lab001?.Sensores.Count}");
-
-            Afirmar(resultados, "Localizar aceita qualquer grafia do código (\"lab-001\")",
-                    conjunto.Localizar("lab-001") == lab001);
 
             Afirmar(resultados, "O sensor fora do padrão vai para \"sem sala\", sem ser perdido",
                     conjunto.SensoresSemSala.Count == 1 && conjunto.SensoresSemSala[0].Hostname == "ESTRANHO-01"
@@ -421,7 +413,7 @@ namespace MackTwin.Verificacao
             sensor.Leituras.Add(Leitura("2026-10-15 00:00:00", host, 20, 40));
             sensor.Leituras.Add(Leitura("2026-10-15 05:00:00", host, 24, 50));
             sensor.Leituras.Add(Leitura("2026-10-15 10:00:00", host, 27, 70));
-            ambiente.Sensores.Add(sensor);
+            ambiente.AdicionarSensor(sensor);
 
             var seisHoras = CalculadorDeResumoDoAmbiente.Resumir(ambiente, TimeSpan.FromHours(6));
 
@@ -466,7 +458,7 @@ namespace MackTwin.Verificacao
             var soTemperatura = new Ambiente { Codigo = "SOTEMP" };
             var sensorParcial = new Sensor { Hostname = "MMCCTSOTEMP-001" };
             sensorParcial.Leituras.Add(Leitura("2026-10-15 10:00:00", "MMCCTSOTEMP-001", 22, double.NaN));
-            soTemperatura.Sensores.Add(sensorParcial);
+            soTemperatura.AdicionarSensor(sensorParcial);
             var parcial = CalculadorDeResumoDoAmbiente.Resumir(soTemperatura, null);
 
             Afirmar(resultados, "Sensor só de temperatura: umidade \"sem dados\" e geral pela temperatura (22 °C → confortável)",

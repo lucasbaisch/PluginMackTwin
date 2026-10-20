@@ -1,24 +1,22 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using Autodesk.Revit.DB.Architecture;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
 using MackTwin.Interface.Controles;
 using MackTwin.Interface.Modelos;
+using MackTwin.Interface.Recursos;
 using MackTwin.Processamento;
 using MackTwin.Revit;
-using DB = Autodesk.Revit.DB;
 using UI = Autodesk.Revit.UI;
-using EventosDaUI = Autodesk.Revit.UI.Events;
 
 namespace MackTwin.Interface
 {
@@ -27,19 +25,25 @@ namespace MackTwin.Interface
     /// sala escolhida à direita (cartões ao vivo, série temporal, a sala no modelo).
     /// </summary>
     /// <remarks>
+    /// A classe está em três arquivos, por responsabilidade: este (estado global, ciclo de
+    /// atualização, exibição), <c>JanelaMackTwin.Revit.cs</c> (tudo o que toca o modelo) e
+    /// <c>JanelaMackTwin.Planilhas.cs</c> (cadastro de planilhas dentro das salas).
+    ///
     /// <b>Um estado global: Visualizar ou Editar.</b> O interruptor "Editar" do cabeçalho é a
     /// única chave. Desligado, a janela só mostra salas e leituras. Ligado, cada cartão de sala
-    /// passa a cadastrar as SUAS planilhas — o selecionado com o cadastro completo (ativar,
-    /// editar, remover, adicionar), os demais com um resumo e o "+ adicionar". A planilha nasce
-    /// marcada com a sala em que foi cadastrada; as sem marca aparecem na sala que os seus
-    /// HOSTNAMEs alimentam, e as que não alimentam sala alguma ficam em "Sem sala", à espera de
-    /// atribuição. Nada disso muda como as leituras são distribuídas: continua pelo HOSTNAME.
+    /// passa a cadastrar as SUAS planilhas — o selecionado com o cadastro completo, os demais
+    /// com um resumo e o "+ adicionar".
+    ///
+    /// <b>A lista é atualizada em lugar.</b> As linhas são uma <see cref="ObservableCollection{T}"/>
+    /// que persiste entre ciclos: cada sala existente é atualizada (e avisa os seus bindings),
+    /// novas entram na posição certa, ausentes saem. Seleção e rolagem sobrevivem, e os cartões
+    /// e o gráfico da sala exibida só são refeitos quando a sua <see cref="LinhaDeAmbiente.Assinatura"/>
+    /// muda. Com a janela minimizada ou oculta o ciclo é adiado, e roda assim que ela volta.
     ///
     /// <b>Dois relógios, duas direções.</b> O <see cref="DispatcherTimer"/> puxa as planilhas a
-    /// cada minuto e refaz a lista; o evento <c>SelectionChanged</c> do Revit empurra para o
-    /// painel a sala que o usuário clicou no modelo. Nenhum dos dois roda em contexto da API,
-    /// então o que precisa do Revit (ler Rooms, pintar, gerar vista) entra pelo
-    /// <see cref="DespachanteDoRevit"/>, que executa na thread da interface.
+    /// cada minuto; o evento <c>SelectionChanged</c> do Revit empurra para o painel a sala que o
+    /// usuário clicou no modelo. Nenhum dos dois roda em contexto da API, então o que precisa do
+    /// Revit entra pelo <see cref="DespachanteDoRevit"/>, que executa na thread da interface.
     ///
     /// <b>Rede de segurança.</b> Uma exceção não tratada na thread de interface derruba o Revit
     /// inteiro. <see cref="DispatcherFalhou"/> intercepta as que vêm do MackTwin, registra nos
@@ -69,12 +73,14 @@ namespace MackTwin.Interface
         private readonly MonitorDePlanilhas _monitor;
         private readonly DispatcherTimer _temporizador;
         private readonly List<string> _avisosIniciais = new();
+        private readonly ObservableCollection<LinhaDeAmbiente> _linhas = new();
 
         private ConjuntoDeAmbientes? _conjunto;
-        private List<LinhaDeAmbiente> _linhas = new();
         private int _ultimoTotalDeRooms;
         private string? _ultimoTituloDoModelo;
         private bool _atualizando;
+        private bool _atualizacaoAdiada;
+        private string? _assinaturaExibida;
         private CancellationTokenSource? _cancelamento;
 
         /// <summary>O estado global: true = Editar, false = Visualizar.</summary>
@@ -97,6 +103,7 @@ namespace MackTwin.Interface
             };
             _temporizador.Tick += Temporizador_Tick;
 
+            ListaDeAmbientes.ItemsSource = _linhas;
             InicializarSeletorDeJanela();
             InicializarLegenda();
 
@@ -106,6 +113,8 @@ namespace MackTwin.Interface
 
             Loaded += JanelaCarregada;
             Closed += JanelaFechada;
+            StateChanged += JanelaVisibilidadeAlterada;
+            IsVisibleChanged += (remetente, mudanca) => JanelaVisibilidadeAlterada(remetente, EventArgs.Empty);
         }
 
         private async void JanelaCarregada(object sender, RoutedEventArgs evento)
@@ -132,7 +141,7 @@ namespace MackTwin.Interface
             TextoTituloDeSalas.Text = editar ? "SALAS  ·  MODO EDIÇÃO" : "SALAS";
             TextoDicaDeEdicao.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
             PainelDePlanilhasSemSala.Visibility = editar ? Visibility.Visible : Visibility.Collapsed;
-            TextoEditar.Foreground = editar ? (Brush)FindResource("BrushBrand") : (Brush)FindResource("BrushTx3");
+            TextoEditar.Foreground = Paleta.Pincel(editar ? Paleta.Marca : Paleta.Texto3);
             TextoEditar.FontWeight = editar ? FontWeights.Bold : FontWeights.Normal;
 
             if (editar && _registro.PlanilhasSemSala(_conjunto?.SalasPorPlanilha).Count > 0)
@@ -143,10 +152,30 @@ namespace MackTwin.Interface
 
         // ── Ciclo de atualização ─────────────────────────────────────────
 
+        private bool EstaVisivel => IsVisible && WindowState != WindowState.Minimized;
+
         private async void Temporizador_Tick(object? sender, EventArgs evento)
         {
-            if (CaixaAuto.IsChecked == true)
+            if (CaixaAuto.IsChecked != true)
+                return;
+
+            if (!EstaVisivel)
+            {
+                // Ninguém está olhando: o ciclo fica devido e roda quando a janela voltar.
+                _atualizacaoAdiada = true;
+                return;
+            }
+
+            await AtualizarAsync();
+        }
+
+        private async void JanelaVisibilidadeAlterada(object? sender, EventArgs evento)
+        {
+            if (_atualizacaoAdiada && EstaVisivel)
+            {
+                _atualizacaoAdiada = false;
                 await AtualizarAsync();
+            }
         }
 
         private async void BotaoAtualizar_Click(object sender, RoutedEventArgs evento)
@@ -233,19 +262,42 @@ namespace MackTwin.Interface
         private void ExibirConjunto(
             ConjuntoDeAmbientes conjunto, int casados, int rooms, string? tituloDoModelo, string? erroDeCasamento)
         {
-            string? codigoSelecionado = (ListaDeAmbientes.SelectedItem as LinhaDeAmbiente)?.Codigo;
             TimeSpan? janela = JanelaSelecionada;
             bool editar = ModoEdicao;
 
-            _linhas = conjunto.Ambientes
-                .Select(ambiente => new LinhaDeAmbiente(
-                    ambiente,
-                    CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela),
-                    _registro.PlanilhasDaSala(ambiente.Codigo, conjunto.SalasPorPlanilha),
-                    editar))
-                .ToList();
+            // Linhas atualizadas em lugar: a lista mantém seleção, rolagem e itens visuais.
+            var existentes = _linhas.ToDictionary(linha => linha.Codigo, StringComparer.Ordinal);
+            var vistos = new HashSet<string>(StringComparer.Ordinal);
+            int posicao = 0;
 
-            ListaDeAmbientes.ItemsSource = _linhas;
+            foreach (var ambiente in conjunto.Ambientes)
+            {
+                var resumo = CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela);
+                var planilhas = _registro.PlanilhasDaSala(ambiente.Codigo, conjunto.SalasPorPlanilha);
+
+                if (existentes.TryGetValue(ambiente.Codigo, out var linha))
+                {
+                    linha.Atualizar(ambiente, resumo, planilhas, editar, janela);
+
+                    int atual = _linhas.IndexOf(linha);
+                    if (atual != posicao)
+                        _linhas.Move(atual, posicao);
+                }
+                else
+                {
+                    _linhas.Insert(posicao, new LinhaDeAmbiente(ambiente, resumo, planilhas, editar, janela));
+                }
+
+                vistos.Add(ambiente.Codigo);
+                posicao++;
+            }
+
+            for (int indice = _linhas.Count - 1; indice >= 0; indice--)
+            {
+                if (!vistos.Contains(_linhas[indice].Codigo))
+                    _linhas.RemoveAt(indice);
+            }
+
             ListaDeSensoresSemSala.ItemsSource = conjunto.SensoresSemSala.Select(DescreverSensorSemSala).ToList();
             ListaDePlanilhasSemSala.ItemsSource = _registro.PlanilhasSemSala(conjunto.SalasPorPlanilha);
 
@@ -268,11 +320,26 @@ namespace MackTwin.Interface
             if (conjunto.PlanilhasComFalha > 0)
                 ExpansorDeAvisos.IsExpanded = true;
 
-            var linha = _linhas.FirstOrDefault(l => l.Codigo == codigoSelecionado) ?? _linhas.FirstOrDefault();
-            ListaDeAmbientes.SelectedItem = linha; // dispara ExibirSala pelo SelectionChanged
+            ExibirSalaSeMudou();
+        }
 
-            if (linha == null)
-                ExibirSala(null);
+        /// <summary>Garante uma sala selecionada e só refaz cartões e gráfico se ela mudou.</summary>
+        private void ExibirSalaSeMudou()
+        {
+            if (ListaDeAmbientes.SelectedItem is not LinhaDeAmbiente linha)
+            {
+                if (_linhas.Count > 0)
+                    ListaDeAmbientes.SelectedItem = _linhas[0]; // dispara ExibirSala
+                else
+                    ExibirSala(null);
+
+                return;
+            }
+
+            if (linha.Assinatura != _assinaturaExibida)
+                ExibirSala(linha);
+            else
+                TextoResumoDaSala.Text = MontarTextoDoResumo(linha);
         }
 
         private static string MontarTextoDeCasamento(
@@ -318,6 +385,7 @@ namespace MackTwin.Interface
         {
             PainelDeCartoes.Children.Clear();
             PainelDoGrafico.Content = null;
+            _assinaturaExibida = linha?.Assinatura;
 
             if (linha == null)
             {
@@ -336,11 +404,11 @@ namespace MackTwin.Interface
             foreach (var sensor in linha.Ambiente.Sensores)
                 PainelDeCartoes.Children.Add(new CartaoDeSensor(sensor));
 
-            // (b) série temporal — todas as leituras da sala dentro da janela
+            // (b) série temporal — as leituras da sala dentro da janela
             try
             {
-                var todas = linha.Ambiente.Leituras.ToList();
-                var naJanela = CalculadorDeResumoDoAmbiente.FiltrarJanela(todas, linha.Ambiente.UltimaLeitura, JanelaSelecionada);
+                var naJanela = CalculadorDeResumoDoAmbiente.FiltrarJanela(
+                    linha.Ambiente.Leituras, linha.Ambiente.UltimaLeitura, JanelaSelecionada);
                 PainelDoGrafico.Content = new ControleGraficoDeSerieTemporal(naJanela);
             }
             catch (Exception excecao)
@@ -402,374 +470,19 @@ namespace MackTwin.Interface
             ReexibirConjunto();
         }
 
-        private static ClassificacaoDeConforto Classificar(Ambiente ambiente, TimeSpan? janela)
-        {
-            return CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela).ClassificacaoGeral;
-        }
-
-        // ── Seleção vinda do Revit ───────────────────────────────────────
-
         /// <summary>
-        /// O usuário clicou num Room no modelo: seleciona a sala correspondente no painel.
-        /// Roda em contexto da API (é um evento do Revit), então pode ler o documento.
+        /// As classificações já calculadas para a lista, por código de sala — para pintar sem
+        /// resumir tudo de novo.
         /// </summary>
-        private void SelecaoNoRevitAlterada(object? sender, EventosDaUI.SelectionChangedEventArgs evento)
+        private Func<Ambiente, ClassificacaoDeConforto> ClassificadorAtual()
         {
-            if (_linhas.Count == 0)
-                return;
-
-            try
-            {
-                var documento = evento.GetDocument();
-
-                foreach (var id in evento.GetSelectedElements())
-                {
-                    if (documento.GetElement(id) is not Room room)
-                        continue;
-
-                    var linha = _linhas.FirstOrDefault(l => l.Ambiente.IdDoElementoNoModelo == id.Value)
-                                ?? _linhas.FirstOrDefault(l => l.Codigo == SeletorDeAmbiente.CodigoDoRoom(room));
-
-                    if (linha != null)
-                    {
-                        ListaDeAmbientes.SelectedItem = linha;
-                        ListaDeAmbientes.ScrollIntoView(linha);
-                    }
-                    else
-                    {
-                        Informar($"O Room {room.Number} selecionado no modelo não tem sensor nas planilhas.");
-                    }
-
-                    return;
-                }
-            }
-            catch (Exception excecao)
-            {
-                AcrescentarAviso("Seleção no modelo: " + excecao.Message);
-            }
-        }
-
-        // ── Ações no modelo (via despachante) ────────────────────────────
-
-        private void BotaoPintar_Click(object sender, RoutedEventArgs evento)
-        {
-            var conjunto = _conjunto;
-
-            if (conjunto == null)
-            {
-                Informar("Aguarde a primeira atualização.");
-                return;
-            }
-
-            int casados = conjunto.Ambientes.Count(ambiente => ambiente.CasadoComOModelo);
-
-            if (casados == 0)
-            {
-                Informar("Nenhuma sala das planilhas casou com um Room do modelo. Numere o Room com o código " +
-                         "da sala (ex.: LAB001 para o sensor MMCCTLAB001-001), clique em \"Atualizar agora\" e tente de novo.");
-                Abas.SelectedIndex = 2;
-                return;
-            }
-
+            var classificacoes = _linhas.ToDictionary(
+                linha => linha.Codigo, linha => linha.Resumo.ClassificacaoGeral, StringComparer.Ordinal);
             TimeSpan? janela = JanelaSelecionada;
 
-            _despachante.Executar(app =>
-            {
-                var uiDocumento = app.ActiveUIDocument;
-
-                if (uiDocumento == null)
-                {
-                    Informar("Abra um modelo para pintar as salas.");
-                    return;
-                }
-
-                var vista = uiDocumento.ActiveView;
-
-                if (!PintorDeAmbientes.VistaAceitaPintura(vista))
-                {
-                    Informar($"A vista ativa (\"{vista.Name}\", {vista.ViewType}) não aceita pintura. Use uma planta, corte ou vista 3D.");
-                    return;
-                }
-
-                var pintura = PintorDeAmbientes.Pintar(uiDocumento.Document, vista, conjunto, ambiente => Classificar(ambiente, janela));
-                uiDocumento.RefreshActiveView();
-
-                string observacao = pintura.Aviso != null
-                    ? " " + pintura.Aviso
-                    : $" Esquema de cores \"{EsquemaDeCoresDeConforto.NomeDoEsquema}\" aplicado à vista; o estado de cada sala está no parâmetro \"{EsquemaDeCoresDeConforto.NomeDoParametro}\" do Room.";
-
-                Informar($"{pintura.Pintados} sala(s) pintada(s) em \"{vista.Name}\".{observacao}");
-            });
-        }
-
-        private void BotaoLimpar_Click(object sender, RoutedEventArgs evento)
-        {
-            var conjunto = _conjunto;
-
-            if (conjunto == null)
-            {
-                Informar("Aguarde a primeira atualização.");
-                return;
-            }
-
-            var ids = conjunto.Ambientes
-                .Where(ambiente => ambiente.IdDoElementoNoModelo.HasValue)
-                .Select(ambiente => ambiente.IdDoElementoNoModelo!.Value)
-                .ToList();
-
-            _despachante.Executar(app =>
-            {
-                var uiDocumento = app.ActiveUIDocument;
-
-                if (uiDocumento == null)
-                {
-                    Informar("Abra um modelo para limpar a pintura.");
-                    return;
-                }
-
-                var vista = uiDocumento.ActiveView;
-
-                if (!PintorDeAmbientes.VistaAceitaPintura(vista))
-                {
-                    Informar($"A vista ativa (\"{vista.Name}\") não tem pintura a limpar.");
-                    return;
-                }
-
-                int limpos = PintorDeAmbientes.Limpar(uiDocumento.Document, vista, ids);
-                uiDocumento.RefreshActiveView();
-                Informar($"Pintura removida de {limpos} sala(s) em \"{vista.Name}\".");
-            });
-        }
-
-        private void BotaoVista3D_Click(object sender, RoutedEventArgs evento)
-        {
-            var conjunto = _conjunto;
-
-            if (conjunto == null)
-            {
-                Informar("Aguarde a primeira atualização.");
-                return;
-            }
-
-            TimeSpan? janela = JanelaSelecionada;
-
-            _despachante.Executar(app =>
-            {
-                var uiDocumento = app.ActiveUIDocument;
-
-                if (uiDocumento == null)
-                {
-                    Informar("Abra um modelo para gerar a vista 3D.");
-                    return;
-                }
-
-                var gerador = new GeradorDeVistaRevit(uiDocumento.Document);
-                var vista = gerador.GerarVistaDeConforto(
-                    conjunto, ambiente => Classificar(ambiente, janela),
-                    out int pintados, out bool volumesAtivados, out string? avisoDaPintura);
-                uiDocumento.ActiveView = vista;
-                uiDocumento.RefreshActiveView();
-
-                string observacao = string.Empty;
-
-                if (volumesAtivados)
-                    observacao += " O cálculo de volumes do projeto foi LIGADO (Áreas e volumes): sem ele o Revit não desenha Rooms em 3D.";
-
-                if (avisoDaPintura != null)
-                    observacao += " " + avisoDaPintura;
-
-                Informar($"Vista \"{vista.Name}\" criada com {pintados} sala(s) pintada(s).{observacao}");
-            });
-        }
-
-        private void BotaoMostrar_Click(object sender, RoutedEventArgs evento)
-        {
-            if (ListaDeAmbientes.SelectedItem is not LinhaDeAmbiente linha)
-            {
-                Informar("Selecione uma sala na lista.");
-                return;
-            }
-
-            if (!linha.Ambiente.IdDoElementoNoModelo.HasValue)
-            {
-                Informar($"A sala {linha.Codigo} não tem Room correspondente no modelo aberto.");
-                return;
-            }
-
-            long id = linha.Ambiente.IdDoElementoNoModelo.Value;
-
-            _despachante.Executar(app =>
-            {
-                var uiDocumento = app.ActiveUIDocument;
-
-                if (uiDocumento == null)
-                {
-                    Informar("Abra um modelo para localizar a sala.");
-                    return;
-                }
-
-                SeletorDeAmbiente.MostrarNoModelo(uiDocumento, id);
-            });
-        }
-
-        private void BotaoDiagnostico_Click(object sender, RoutedEventArgs evento)
-        {
-            var conjunto = _conjunto;
-
-            _despachante.Executar(app =>
-            {
-                var uiDocumento = app.ActiveUIDocument;
-
-                if (uiDocumento == null)
-                {
-                    Informar("Abra um modelo para diagnosticar.");
-                    return;
-                }
-
-                string relatorio = DiagnosticoDoModelo.Gerar(uiDocumento, conjunto);
-
-                AcrescentarAviso(relatorio);
-                ExpansorDeAvisos.IsExpanded = true;
-
-                try
-                {
-                    Clipboard.SetText(relatorio);
-                    TextoStatus.Text = "Diagnóstico registrado nos avisos e copiado para a área de transferência.";
-                }
-                catch (Exception)
-                {
-                    TextoStatus.Text = "Diagnóstico registrado nos avisos.";
-                }
-            });
-        }
-
-        // ── Planilhas: cadastro dentro de cada sala (modo Editar) ────────
-
-        /// <summary>O objeto que o botão carrega: o Tag, ou o DataContext do item.</summary>
-        private static T? Contexto<T>(object sender) where T : class
-        {
-            var elemento = sender as FrameworkElement;
-            return elemento?.Tag as T ?? elemento?.DataContext as T;
-        }
-
-        private async void AdicionarPlanilhaNaSala_Click(object sender, RoutedEventArgs evento)
-        {
-            if (Contexto<LinhaDeAmbiente>(sender) is not { } linha)
-                return;
-
-            ListaDeAmbientes.SelectedItem = linha;
-
-            var dialogo = new JanelaDeCadastroDePlanilha(linha.Codigo, null) { Owner = this };
-
-            if (dialogo.ShowDialog() != true)
-                return;
-
-            try
-            {
-                _registro.Adicionar(dialogo.Nome, dialogo.Url, linha.Codigo);
-            }
-            catch (Exception excecao)
-            {
-                MessageBox.Show(this, excecao.Message, "Cadastro de planilha", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            Informar($"Planilha \"{dialogo.Nome}\" cadastrada na sala {linha.Codigo}.");
-            await AtualizarAsync();
-        }
-
-        private async void EditarPlanilha_Click(object sender, RoutedEventArgs evento)
-        {
-            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
-                return;
-
-            var dialogo = new JanelaDeCadastroDePlanilha(planilha.Sala, planilha) { Owner = this };
-
-            if (dialogo.ShowDialog() != true)
-                return;
-
-            planilha.Nome = dialogo.Nome;
-            planilha.Url = dialogo.Url;
-
-            try
-            {
-                _registro.Salvar();
-            }
-            catch (Exception excecao)
-            {
-                MessageBox.Show(this, excecao.Message, "Editar planilha", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            await AtualizarAsync();
-        }
-
-        private async void RemoverPlanilha_Click(object sender, RoutedEventArgs evento)
-        {
-            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
-                return;
-
-            var resposta = MessageBox.Show(this, $"Remover \"{planilha.Nome}\" do cadastro?", "Remover planilha",
-                MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-            if (resposta != MessageBoxResult.Yes)
-                return;
-
-            try
-            {
-                _registro.Remover(planilha);
-            }
-            catch (Exception excecao)
-            {
-                MessageBox.Show(this, excecao.Message, "Remover planilha", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            await AtualizarAsync();
-        }
-
-        /// <summary>Planilha sem sala: passa a pertencer à sala selecionada na lista.</summary>
-        private void AtribuirPlanilha_Click(object sender, RoutedEventArgs evento)
-        {
-            if (Contexto<PlanilhaRegistrada>(sender) is not { } planilha)
-                return;
-
-            if (ListaDeAmbientes.SelectedItem is not LinhaDeAmbiente linha)
-            {
-                Informar("Selecione na lista a sala à qual a planilha pertence e clique de novo em \"atribuir\".");
-                return;
-            }
-
-            planilha.Sala = linha.Codigo;
-
-            try
-            {
-                _registro.Salvar();
-            }
-            catch (Exception excecao)
-            {
-                AcrescentarAviso("Não foi possível gravar o cadastro de planilhas: " + excecao.Message);
-            }
-
-            Informar($"Planilha \"{planilha.Nome}\" atribuída à sala {linha.Codigo}.");
-            ReexibirConjunto();
-        }
-
-        private void PlanilhaAtivaAlterada(object sender, RoutedEventArgs evento)
-        {
-            // O evento também dispara quando o binding aplica o valor inicial, antes de o
-            // controle carregar; só a mudança feita pelo usuário merece ida ao disco.
-            if (sender is CheckBox { IsLoaded: false })
-                return;
-
-            try
-            {
-                _registro.Salvar();
-            }
-            catch (Exception excecao)
-            {
-                AcrescentarAviso("Não foi possível gravar o cadastro de planilhas: " + excecao.Message);
-            }
+            return ambiente => classificacoes.TryGetValue(ambiente.Codigo, out var classificacao)
+                ? classificacao
+                : CalculadorDeResumoDoAmbiente.Resumir(ambiente, janela).ClassificacaoGeral;
         }
 
         // ── Legenda ──────────────────────────────────────────────────────
@@ -786,15 +499,13 @@ namespace MackTwin.Interface
 
             foreach (var estado in estados)
             {
-                var (r, g, b) = CoresDeConforto.ParaRgb(CoresDeConforto.Para(estado));
-
                 var item = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 16, 0) };
 
                 item.Children.Add(new Ellipse
                 {
                     Width = 11,
                     Height = 11,
-                    Fill = new SolidColorBrush(Color.FromRgb(r, g, b)),
+                    Fill = Paleta.Pincel(Paleta.CorDeConforto(estado)),
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(0, 0, 6, 0),
                 });

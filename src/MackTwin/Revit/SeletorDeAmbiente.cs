@@ -35,7 +35,8 @@ namespace MackTwin.Revit
     /// O casamento é pelo código normalizado (<see cref="CodigoDeSala"/>): primeiro contra o
     /// NÚMERO do Room — é o campo que o projetista usa para codificar salas, e é curto —, depois
     /// contra o NOME, para o modelo em que alguém escreveu "LAB001" no nome e deixou o número em
-    /// branco. Nenhum cadastro manual: a planilha e o modelo já trazem a chave.
+    /// branco. Nenhum cadastro manual: a planilha e o modelo já trazem a chave. Os Rooms são
+    /// indexados uma vez por código, de modo que o casamento é linear no número de salas.
     ///
     /// Rooms não colocados (sem <c>Location</c>) são ignorados: existem na tabela do projeto mas
     /// não têm geometria para pintar.
@@ -77,14 +78,27 @@ namespace MackTwin.Revit
         public int CasarComOModelo(ConjuntoDeAmbientes conjunto)
         {
             var rooms = ColetarRooms();
+            var porNumero = new Dictionary<string, RoomDoModelo>(StringComparer.Ordinal);
+            var porNome = new Dictionary<string, RoomDoModelo>(StringComparer.Ordinal);
+
+            foreach (var room in rooms)
+            {
+                string numero = room.CodigoDoNumero;
+                string nome = room.CodigoDoNome;
+
+                if (numero.Length > 0)
+                    porNumero.TryAdd(numero, room);
+
+                if (nome.Length > 0)
+                    porNome.TryAdd(nome, room);
+            }
+
             int casados = 0;
 
             foreach (var ambiente in conjunto.Ambientes)
             {
-                var room = rooms.FirstOrDefault(r => r.CodigoDoNumero == ambiente.Codigo)
-                           ?? rooms.FirstOrDefault(r => r.CodigoDoNome == ambiente.Codigo);
-
-                if (room == null)
+                if (!porNumero.TryGetValue(ambiente.Codigo, out var room)
+                    && !porNome.TryGetValue(ambiente.Codigo, out room))
                 {
                     ambiente.IdDoElementoNoModelo = null;
                     ambiente.NomeNoModelo = null;

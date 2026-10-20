@@ -12,13 +12,9 @@ namespace MackTwin.Configuracao
     /// classificar cada leitura e cada ambiente (<see cref="Processamento.ClassificadorDeConforto"/>).
     /// </summary>
     /// <remarks>
-    /// Temperatura 21–26 °C e umidade relativa 35–65% conforme ABNT NBR 17037:2023; ruído
-    /// ≤ 50 dB(A) diurno / ≤ 45 dB(A) noturno conforme ABNT NBR 10151:2019. Valores dentro da
-    /// faixa, extremos inclusive, são confortáveis.
-    ///
-    /// O ruído ainda não é medido pelos sensores instalados — o DHT22 entrega só temperatura e
-    /// umidade —, mas as constantes ficam: a faixa é normativa, não depende do aparelho, e o
-    /// sensor que vier a medi-lo encontra o limite já definido.
+    /// Temperatura 21–26 °C e umidade relativa 35–65% conforme ABNT NBR 17037:2023. Valores
+    /// dentro da faixa, extremos inclusive, são confortáveis. Outra grandeza entra aqui no dia
+    /// em que um sensor a medir — não antes.
     /// </remarks>
     public static class FaixasDeConfortoAmbiental
     {
@@ -33,15 +29,6 @@ namespace MackTwin.Configuracao
 
         /// <summary>Umidade relativa máxima confortável (%). NBR 17037: 65%.</summary>
         public const double UmidadeMaxima = 65.0;
-
-        /// <summary>Nível de ruído mínimo confortável (dB). Não há piso de desconforto: 0 dB.</summary>
-        public const double RuidoMinimo = 0.0;
-
-        /// <summary>Nível de ruído máximo confortável (dB) no período diurno. NBR 10151: ≤ 50 dB(A).</summary>
-        public const double RuidoMaximoDiurno = 50.0;
-
-        /// <summary>Nível de ruído máximo confortável (dB) no período noturno. NBR 10151: ≤ 45 dB(A).</summary>
-        public const double RuidoMaximoNoturno = 45.0;
     }
 
     /// <summary>
@@ -172,6 +159,13 @@ namespace MackTwin.Configuracao
 
         /// <summary>Janela padrão da série temporal exibida, em horas, contada da última leitura.</summary>
         public const int JanelaPadraoDaSerieEmHoras = 6;
+
+        /// <summary>
+        /// A cada quantos ciclos o leitor volta a baixar a planilha INTEIRA em vez de só as
+        /// linhas novas. O incremento é o caminho normal (barato); a recarga completa corrige
+        /// edições e exclusões feitas à mão na planilha, que o incremento não enxerga.
+        /// </summary>
+        public const int CiclosEntreRecargasCompletas = 30;
     }
 
     /// <summary>
@@ -236,9 +230,6 @@ namespace MackTwin.Configuracao
 
         /// <summary>Transação que cria a vista 3D de conforto.</summary>
         public const string NomeDaTransacaoDeVista = "MackTwin — Gerar vista 3D de conforto";
-
-        /// <summary>Transparência da superfície pintada (0 = opaca, 100 = invisível).</summary>
-        public const int TransparenciaDaSuperficie = 0;
 
         /// <summary>
         /// Transparência (0–100) aplicada a paredes, pisos, portas e janelas na vista 3D de

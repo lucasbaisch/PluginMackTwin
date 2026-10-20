@@ -27,6 +27,10 @@ namespace MackTwin.Revit
     /// cada pintura. O arquivo de parâmetros compartilhados fica na pasta de dados do usuário,
     /// e a configuração anterior do Revit é restaurada ao fim.
     ///
+    /// <b>Só grava o que mudou.</b> As entradas do esquema só são reescritas quando diferem das
+    /// desejadas, e o parâmetro é localizado pelo próprio Room (sem varrer o documento) quando
+    /// já existe — menos alterações no modelo, menos entradas de "desfazer".
+    ///
     /// O esquema é criado por duplicação de um esquema de Ambientes já existente, porque a API
     /// não cria esquemas do zero; um projeto sem nenhum esquema de Ambientes recebe aviso.
     /// Todos os métodos precisam de transação ativa.
@@ -60,6 +64,13 @@ namespace MackTwin.Revit
         /// </summary>
         public static ElementId GarantirParametro(Document documento)
         {
+            // Caminho rápido: se qualquer Room já expõe o parâmetro, o Id está nele.
+            var primeiroRoom = ColetarRooms(documento).FirstOrDefault();
+            var noRoom = primeiroRoom?.LookupParameter(NomeDoParametro);
+
+            if (noRoom != null && noRoom.Id != ElementId.InvalidElementId)
+                return noRoom.Id;
+
             var existente = new FilteredElementCollector(documento)
                 .OfClass(typeof(SharedParameterElement))
                 .Cast<SharedParameterElement>()
@@ -116,7 +127,7 @@ namespace MackTwin.Revit
         /// <summary>
         /// Grava, em TODOS os Rooms colocados, o estado da sala: o da classificação para os
         /// casados, "Sem dados" para os demais — assim o prédio inteiro fica legível de relance.
-        /// Devolve quantos Rooms casados foram rotulados.
+        /// Só toca o parâmetro cujo valor mudou. Devolve quantos Rooms casados foram rotulados.
         /// </summary>
         public static int RotularRooms(
             Document documento,
@@ -141,8 +152,10 @@ namespace MackTwin.Revit
 
                 bool casado = ambientesPorId.TryGetValue(room.Id.Value, out var ambiente);
                 var classificacao = casado ? classificar(ambiente!) : ClassificacaoDeConforto.SemDados;
+                string valor = ClassificadorDeConforto.Descrever(classificacao);
 
-                parametro.Set(ClassificadorDeConforto.Descrever(classificacao));
+                if (!string.Equals(parametro.AsString(), valor, StringComparison.Ordinal))
+                    parametro.Set(valor);
 
                 if (casado)
                     rotulados++;
@@ -181,25 +194,11 @@ namespace MackTwin.Revit
             if (esquema.ParameterDefinition != idDoParametro)
                 esquema.ParameterDefinition = idDoParametro;
 
-            var entradas = new List<ColorFillSchemeEntry>();
+            var entradas = MontarEntradas(solido);
 
-            foreach (var estado in Estados)
-            {
-                var entrada = new ColorFillSchemeEntry(StorageType.String)
-                {
-                    Color = PintorDeAmbientes.ParaCorDoRevit(CoresDeConforto.Para(estado)),
-                    IsVisible = true,
-                };
+            if (!EntradasIguais(esquema.GetEntries(), entradas))
+                esquema.SetEntries(entradas);
 
-                entrada.SetStringValue(ClassificadorDeConforto.Descrever(estado));
-
-                if (solido != null)
-                    entrada.FillPatternId = solido.Id;
-
-                entradas.Add(entrada);
-            }
-
-            esquema.SetEntries(entradas);
             return esquema;
         }
 
@@ -208,7 +207,9 @@ namespace MackTwin.Revit
         {
             try
             {
-                vista.SetColorFillSchemeId(IdDeRooms, esquema.Id);
+                if (vista.GetColorFillSchemeId(IdDeRooms) != esquema.Id)
+                    vista.SetColorFillSchemeId(IdDeRooms, esquema.Id);
+
                 return true;
             }
             catch (Autodesk.Revit.Exceptions.ArgumentException)
@@ -251,6 +252,55 @@ namespace MackTwin.Revit
             {
                 return null;
             }
+        }
+
+        // ── Apoio ────────────────────────────────────────────────────────
+
+        private static List<ColorFillSchemeEntry> MontarEntradas(FillPatternElement? solido)
+        {
+            var entradas = new List<ColorFillSchemeEntry>(Estados.Length);
+
+            foreach (var estado in Estados)
+            {
+                var entrada = new ColorFillSchemeEntry(StorageType.String)
+                {
+                    Color = PintorDeAmbientes.ParaCorDoRevit(CoresDeConforto.Para(estado)),
+                    IsVisible = true,
+                };
+
+                entrada.SetStringValue(ClassificadorDeConforto.Descrever(estado));
+
+                if (solido != null)
+                    entrada.FillPatternId = solido.Id;
+
+                entradas.Add(entrada);
+            }
+
+            return entradas;
+        }
+
+        private static bool EntradasIguais(IList<ColorFillSchemeEntry> atuais, IList<ColorFillSchemeEntry> desejadas)
+        {
+            if (atuais.Count != desejadas.Count)
+                return false;
+
+            for (int indice = 0; indice < atuais.Count; indice++)
+            {
+                var a = atuais[indice];
+                var d = desejadas[indice];
+
+                if (a.StorageType != StorageType.String
+                    || !string.Equals(a.GetStringValue(), d.GetStringValue(), StringComparison.Ordinal)
+                    || !a.Color.IsValid
+                    || a.Color.Red != d.Color.Red || a.Color.Green != d.Color.Green || a.Color.Blue != d.Color.Blue
+                    || a.FillPatternId != d.FillPatternId
+                    || a.IsVisible != d.IsVisible)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static IEnumerable<Room> ColetarRooms(Document documento)

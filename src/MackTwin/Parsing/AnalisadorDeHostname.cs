@@ -6,13 +6,14 @@ using MackTwin.Dominio;
 namespace MackTwin.Parsing
 {
     /// <summary>
-    /// Extrai do HOSTNAME a instituição, a unidade, a sala e o número do dispositivo.
+    /// Extrai do HOSTNAME a sala e o número do dispositivo.
     /// </summary>
     /// <remarks>
-    /// <c>MMCCTLAB001-001</c> → MM / CCT / LAB001 / 001. É o que casa o sensor com o Room sem
-    /// cadastro manual: todo dispositivo instalado com um nome nesse padrão aparece sozinho na
-    /// sala certa. Nomes fora do padrão não são erro — o sensor existe e tem leituras —, só não
-    /// têm sala; a interface os lista à parte para que alguém os renomeie.
+    /// <c>MMCCTLAB001-001</c> → sala LAB001, dispositivo 001. É o que casa o sensor com o Room
+    /// sem cadastro manual: todo dispositivo instalado com um nome nesse padrão aparece sozinho
+    /// na sala certa. O padrão inteiro é validado (instituição e unidade inclusive), mas só o
+    /// que o painel consome é guardado. Nomes fora do padrão não são erro — o sensor existe e
+    /// tem leituras —, só não têm sala; a interface os lista à parte para que alguém os renomeie.
     ///
     /// A comparação ignora caixa e espaços nas pontas, porque é assim que nomes de rede chegam
     /// de firmwares diferentes; o padrão em si está em
@@ -44,8 +45,6 @@ namespace MackTwin.Parsing
             identificacao = new IdentificacaoDeSensor
             {
                 Hostname = texto,
-                Instituicao = casamento.Groups["instituicao"].Value.ToUpperInvariant(),
-                Unidade = casamento.Groups["unidade"].Value.ToUpperInvariant(),
                 CodigoDaSala = CodigoDeSala.Normalizar(casamento.Groups["sala"].Value),
                 NumeroDoDispositivo = casamento.Groups["dispositivo"].Value,
             };

@@ -5,7 +5,6 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <RootNamespace>MackTwin</RootNamespace>
     <AssemblyName>MackTwin</AssemblyName>
   </PropertyGroup>
@@ -63,7 +62,7 @@
       <!-- Tudo o que o build produziu, e não só o DLL do plugin: as dependências
            (LiveCharts) e os arquivos de configuração do runtime precisam
            acompanhar, ou o Revit carrega o complemento e ele falha ao abrir a janela. -->
-      <ArquivosImplantaveis Include="$(TargetDir)**\*.*" />
+      <ArquivosImplantaveis Include="$(TargetDir)**\*.*" Exclude="$(TargetDir)**\*.pdb" />
     </ItemGroup>
 
     <MakeDir Directories="$(PastaDeImplantacaoNoRevit)" ContinueOnError="WarnAndContinue" />

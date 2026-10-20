@@ -169,8 +169,9 @@ namespace MackTwin.Configuracao
             if (normalizado.Length == 0)
                 return Array.Empty<PlanilhaRegistrada>();
 
+            // p.Sala já está normalizado: Carregar e Adicionar garantem isso na entrada.
             return Planilhas
-                .Where(p => NormalizarSala(p.Sala) == normalizado
+                .Where(p => p.Sala == normalizado
                             || (p.Sala == null && AlimentaASala(p, normalizado, salasDetectadas)))
                 .ToList();
         }

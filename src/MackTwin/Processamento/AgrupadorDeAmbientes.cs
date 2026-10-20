@@ -14,7 +14,8 @@ namespace MackTwin.Processamento
     /// É aqui que o achado-chave vira estrutura: <c>MMCCTLAB001-001</c> e <c>MMCCTLAB001-002</c>
     /// são dois sensores da mesma sala LAB001, sem que ninguém precise dizer isso. Sensores com
     /// nome fora do padrão não são perdidos — ficam em <see cref="ConjuntoDeAmbientes.SensoresSemSala"/>,
-    /// com aviso, para que alguém os renomeie.
+    /// com aviso, para que alguém os renomeie. Os totais do conjunto são calculados aqui, uma
+    /// vez, e o HOSTNAME é analisado uma vez por sensor, não por leitura.
     /// </remarks>
     public static class AgrupadorDeAmbientes
     {
@@ -24,6 +25,7 @@ namespace MackTwin.Processamento
         public static ConjuntoDeAmbientes Agrupar(IEnumerable<Leitura> leituras, List<string>? avisos = null)
         {
             var sensoresPorHostname = new Dictionary<string, Sensor>(StringComparer.OrdinalIgnoreCase);
+            int totalDeLeituras = 0;
 
             foreach (var leitura in leituras)
             {
@@ -41,6 +43,7 @@ namespace MackTwin.Processamento
                 }
 
                 sensor.Leituras.Add(leitura);
+                totalDeLeituras++;
 
                 if (!string.IsNullOrWhiteSpace(leitura.EnderecoMac))
                     sensor.EnderecoMac = leitura.EnderecoMac;
@@ -71,22 +74,22 @@ namespace MackTwin.Processamento
                     ambientes[codigo] = ambiente;
                 }
 
-                ambiente.Sensores.Add(sensor);
+                ambiente.AdicionarSensor(sensor);
             }
 
-            var conjunto = new ConjuntoDeAmbientes
+            avisos?.Add(string.Format(CultureInfo.CurrentCulture,
+                "{0} sensor(es) em {1} sala(s), {2} sem sala; {3} leitura(s) no total.",
+                sensoresPorHostname.Count, ambientes.Count, semSala.Count, totalDeLeituras));
+
+            return new ConjuntoDeAmbientes
             {
                 Ambientes = ambientes.Values.OrderBy(a => a.Codigo, StringComparer.Ordinal).ToList(),
                 SensoresSemSala = semSala,
                 AtualizadoEm = DateTime.Now,
                 Avisos = avisos ?? new List<string>(),
+                TotalDeLeituras = totalDeLeituras,
+                TotalDeSensores = sensoresPorHostname.Count,
             };
-
-            avisos?.Add(string.Format(CultureInfo.CurrentCulture,
-                "{0} sensor(es) em {1} sala(s), {2} sem sala; {3} leitura(s) no total.",
-                conjunto.TotalDeSensores, conjunto.Ambientes.Count, semSala.Count, conjunto.TotalDeLeituras));
-
-            return conjunto;
         }
     }
 }

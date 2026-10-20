@@ -11,7 +11,7 @@ namespace MackTwin.Processamento
 {
     /// <summary>
     /// Um ciclo de atualização: baixa todas as planilhas ativas, junta as leituras e as agrupa
-    /// em salas. Guarda o último conjunto para a interface consultar entre ciclos.
+    /// em salas.
     /// </summary>
     /// <remarks>
     /// Não tem relógio próprio: quem decide QUANDO atualizar é a janela (um
@@ -19,11 +19,14 @@ namespace MackTwin.Processamento
     /// porque é ela que sabe se está visível e se o usuário pediu pausa. Este objeto só sabe
     /// COMO atualizar, e por isso pode ser exercitado sem interface.
     ///
+    /// O <see cref="LeitorDePlanilhaGoogle"/> é um só e vive entre ciclos: é nele que fica o
+    /// cache que torna os ciclos seguintes incrementais.
+    ///
     /// Uma planilha que falha não derruba as outras: o erro vira aviso, a contagem vai para
     /// <see cref="ConjuntoDeAmbientes.PlanilhasComFalha"/> e as salas das planilhas que
     /// responderam são exibidas normalmente. Para cada planilha o monitor anota que salas ela
-    /// alimentou (<see cref="ConjuntoDeAmbientes.SalasPorPlanilha"/>), o que permite listar a
-    /// planilha dentro da sala certa mesmo sem marca de cadastro.
+    /// alimentou (<see cref="ConjuntoDeAmbientes.SalasPorPlanilha"/>) — pelos HOSTNAMEs
+    /// distintos, não por leitura: são poucos sensores e milhares de leituras.
     /// </remarks>
     public sealed class MonitorDePlanilhas
     {
@@ -31,15 +34,6 @@ namespace MackTwin.Processamento
 
         /// <summary>O cadastro de planilhas que este monitor percorre.</summary>
         public RegistroDePlanilhas Registro { get; }
-
-        /// <summary>Resultado do último ciclo, ou null antes do primeiro.</summary>
-        public ConjuntoDeAmbientes? UltimoConjunto { get; private set; }
-
-        /// <summary>Quando o último ciclo terminou, ou null.</summary>
-        public DateTime? UltimaAtualizacao { get; private set; }
-
-        /// <summary>Avisos do último ciclo.</summary>
-        public IReadOnlyList<string> UltimosAvisos { get; private set; } = Array.Empty<string>();
 
         /// <summary>Cria o monitor sobre um cadastro já carregado.</summary>
         public MonitorDePlanilhas(RegistroDePlanilhas registro)
@@ -73,7 +67,9 @@ namespace MackTwin.Processamento
                     leituras.AddRange(daPlanilha);
 
                     salasPorPlanilha[planilha.Url] = daPlanilha
-                        .Select(leitura => AnalisadorDeHostname.ExtrairCodigoDaSala(leitura.Hostname))
+                        .Select(leitura => leitura.Hostname)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Select(AnalisadorDeHostname.ExtrairCodigoDaSala)
                         .Where(codigo => codigo.Length > 0)
                         .Distinct(StringComparer.Ordinal)
                         .ToList();
@@ -92,10 +88,6 @@ namespace MackTwin.Processamento
             var conjunto = AgrupadorDeAmbientes.Agrupar(leituras, avisos);
             conjunto.PlanilhasComFalha = falhas;
             conjunto.SalasPorPlanilha = salasPorPlanilha;
-
-            UltimoConjunto = conjunto;
-            UltimaAtualizacao = DateTime.Now;
-            UltimosAvisos = avisos;
 
             return conjunto;
         }

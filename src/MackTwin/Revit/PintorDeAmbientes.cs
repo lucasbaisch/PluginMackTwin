@@ -13,9 +13,6 @@ namespace MackTwin.Revit
         /// <summary>Salas casadas que receberam estado e cor.</summary>
         public int Pintados { get; init; }
 
-        /// <summary>Se o esquema de cores foi aplicado à vista.</summary>
-        public bool EsquemaAplicado { get; init; }
-
         /// <summary>Explicação quando algo impediu a cor de aparecer, ou null.</summary>
         public string? Aviso { get; init; }
     }
@@ -57,7 +54,7 @@ namespace MackTwin.Revit
         /// <summary>
         /// Rotula os Rooms, garante o esquema de cores, aplica-o à vista e reforça as linhas.
         /// </summary>
-        /// <param name="classificar">Como obter o estado da sala — normalmente o resumo na janela escolhida.</param>
+        /// <param name="classificar">Como obter o estado da sala — normalmente o resumo já calculado para a lista.</param>
         public static ResultadoDaPintura Pintar(
             Document documento,
             View vista,
@@ -102,12 +99,7 @@ namespace MackTwin.Revit
 
             transacao.Commit();
 
-            return new ResultadoDaPintura
-            {
-                Pintados = rotulados,
-                EsquemaAplicado = esquemaAplicado,
-                Aviso = aviso,
-            };
+            return new ResultadoDaPintura { Pintados = rotulados, Aviso = aviso };
         }
 
         /// <summary>

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
+using MackTwin.Interface.Recursos;
 using MackTwin.Processamento;
 
 namespace MackTwin.Interface.Controles
@@ -13,15 +14,15 @@ namespace MackTwin.Interface.Controles
     /// da sua faixa, com a hora da leitura.
     /// </summary>
     /// <remarks>
-    /// Montado em código, sem XAML próprio, porque é um bloco pequeno que nasce e morre a cada
-    /// ciclo de atualização: a sala muda, os cartões são refeitos. As cores vêm de
-    /// <see cref="CoresDeConforto"/>, as mesmas da lista e do modelo.
+    /// Montado em código, sem XAML próprio, porque é um bloco pequeno que nasce e morre quando
+    /// a sala exibida muda. As cores vêm de <see cref="Paleta"/> e <see cref="CoresDeConforto"/>,
+    /// as mesmas da lista e do modelo.
     /// </remarks>
     public sealed class CartaoDeSensor : UserControl
     {
-        private static readonly Brush PincelDaBorda = Congelar(Color.FromRgb(0xE4, 0xE7, 0xEC));
-        private static readonly Brush PincelDoTexto = Congelar(Color.FromRgb(0x1B, 0x22, 0x30));
-        private static readonly Brush PincelDoTextoFraco = Congelar(Color.FromRgb(0x7A, 0x83, 0x92));
+        private static readonly Brush PincelDaBorda = Paleta.Pincel(Paleta.Borda);
+        private static readonly Brush PincelDoTexto = Paleta.Pincel(Paleta.Texto);
+        private static readonly Brush PincelDoTextoFraco = Paleta.Pincel(Paleta.Texto3);
 
         /// <summary>Monta o cartão a partir do estado atual do sensor.</summary>
         public CartaoDeSensor(Sensor sensor)
@@ -102,9 +103,7 @@ namespace MackTwin.Interface.Controles
             string rotulo, double valor, string unidade, string formato,
             ClassificacaoDeConforto classificacao, string faixa)
         {
-            var (r, g, b) = CoresDeConforto.ParaRgb(CoresDeConforto.Para(classificacao));
-            var cor = Congelar(Color.FromRgb(r, g, b));
-
+            var cor = Paleta.Pincel(Paleta.CorDeConforto(classificacao));
             var bloco = new StackPanel { Margin = new Thickness(0, 0, 8, 0) };
 
             bloco.Children.Add(new TextBlock
@@ -140,13 +139,6 @@ namespace MackTwin.Interface.Controles
             });
 
             return bloco;
-        }
-
-        private static Brush Congelar(Color cor)
-        {
-            var pincel = new SolidColorBrush(cor);
-            pincel.Freeze();
-            return pincel;
         }
     }
 }

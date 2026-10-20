@@ -6,8 +6,8 @@ using System.Text;
 namespace MackTwin.Parsing
 {
     /// <summary>
-    /// Operações elementares sobre texto CSV: dividir linhas, separar campos respeitando aspas
-    /// e converter números com vírgula decimal e carimbos de tempo.
+    /// Operações elementares sobre texto CSV: separar campos respeitando aspas e converter
+    /// números com vírgula decimal e carimbos de tempo.
     /// </summary>
     /// <remarks>
     /// <b>Números saem em cultura invariante.</b> A planilha grava a medida com VÍRGULA decimal
@@ -17,14 +17,6 @@ namespace MackTwin.Parsing
     /// </remarks>
     public static class UtilitariosDeCsv
     {
-        private static readonly string[] QuebrasDeLinha = { "\r\n", "\n", "\r" };
-
-        /// <summary>Divide o texto em linhas, aceitando qualquer convenção de quebra.</summary>
-        public static List<string> DividirEmLinhas(string texto)
-        {
-            return new List<string>(texto.Split(QuebrasDeLinha, StringSplitOptions.None));
-        }
-
         /// <summary>
         /// Divide a linha pelo delimitador informado, respeitando campos entre aspas duplas
         /// (dentro das aspas o delimitador é conteúdo). Aspas duplicadas (<c>""</c>) viram uma.

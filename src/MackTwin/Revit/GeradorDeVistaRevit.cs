@@ -26,6 +26,11 @@ namespace MackTwin.Revit
     /// </remarks>
     public sealed class GeradorDeVistaRevit
     {
+        private static readonly Regex PadraoDeVersao = new(
+            "^" + Regex.Escape($"{ConfiguracaoDeNomeDeVista.Prefixo}_{ConfiguracaoDeNomeDeVista.AssuntoConforto}_")
+                + Regex.Escape(ConfiguracaoDeNomeDeVista.PrefixoDeVersao) + @"(?<versao>\d+)_",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
         private readonly Document _documento;
 
         /// <summary>Cria o gerador sobre o documento aberto.</summary>
@@ -35,13 +40,14 @@ namespace MackTwin.Revit
         }
 
         /// <summary>Gera a vista e pinta as salas casadas. Devolve a vista criada.</summary>
-        /// <param name="classificar">Como obter o estado da sala — normalmente o resumo na janela escolhida.</param>
+        /// <param name="classificar">Como obter o estado da sala — normalmente o resumo já calculado para a lista.</param>
         /// <param name="pintados">Quantas salas receberam cor.</param>
         /// <param name="volumesAtivados">
         /// Se foi preciso ligar o cálculo de volumes do projeto. O Revit só desenha Rooms em
         /// vistas 3D com "Áreas e volumes" ativo (Cálculos de área e volume); o padrão dos
         /// projetos é "Somente áreas", e aí a vista sai sem sala nenhuma — tudo cinza.
         /// </param>
+        /// <param name="avisoDaPintura">Explicação da pintura quando algo impediu a cor, ou null.</param>
         /// <exception cref="InvalidOperationException">O modelo não tem tipo de vista 3D.</exception>
         public View3D GerarVistaDeConforto(
             ConjuntoDeAmbientes conjunto,
@@ -55,7 +61,6 @@ namespace MackTwin.Revit
 
             View3D vista;
             volumesAtivados = false;
-            avisoDaPintura = null;
 
             using (var transacao = new Transaction(_documento, ConfiguracaoDePinturaDeAmbientes.NomeDaTransacaoDeVista))
             {
@@ -165,18 +170,40 @@ namespace MackTwin.Revit
 
         // ── Nome da vista ────────────────────────────────────────────────
 
+        /// <summary>
+        /// Monta <c>MackTwin_Conforto_vNN_carimbo</c> com a próxima versão livre, numa única
+        /// passagem pelas vistas do documento: nomes em uso e maior versão já gerada.
+        /// </summary>
+        /// <remarks>
+        /// Lê a maior versão em vez de contar as vistas existentes: apagar uma versão
+        /// intermediária não pode fazer a próxima colidir com uma que ainda está lá. A busca
+        /// continua incrementando enquanto o nome estiver em uso, cobrindo duas gerações no
+        /// mesmo minuto.
+        /// </remarks>
         private string MontarNomeDaVista()
         {
             string carimbo = DateTime.Now.ToString(ConfiguracaoDeNomeDeVista.FormatoDoCarimboDeTempo);
+            var nomesEmUso = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int maiorVersao = 0;
 
-            var nomesEmUso = new HashSet<string>(
-                new FilteredElementCollector(_documento)
-                    .OfClass(typeof(View))
-                    .Cast<View>()
-                    .Select(vista => vista.Name),
-                StringComparer.OrdinalIgnoreCase);
+            foreach (var vista in new FilteredElementCollector(_documento).OfClass(typeof(View)).Cast<View>())
+            {
+                nomesEmUso.Add(vista.Name);
 
-            int versao = ObterMaiorVersaoExistente() + 1;
+                if (vista is View3D)
+                {
+                    var casamento = PadraoDeVersao.Match(vista.Name);
+
+                    if (casamento.Success
+                        && int.TryParse(casamento.Groups["versao"].Value, out int versaoLida)
+                        && versaoLida > maiorVersao)
+                    {
+                        maiorVersao = versaoLida;
+                    }
+                }
+            }
+
+            int versao = maiorVersao + 1;
             int limite = versao + ConfiguracaoDeNomeDeVista.LimiteDeTentativasDeVersao;
             string nome;
 
@@ -196,31 +223,6 @@ namespace MackTwin.Revit
             return $"{ConfiguracaoDeNomeDeVista.Prefixo}_{ConfiguracaoDeNomeDeVista.AssuntoConforto}_" +
                    $"{ConfiguracaoDeNomeDeVista.PrefixoDeVersao}" +
                    $"{versao.ToString(ConfiguracaoDeNomeDeVista.FormatoDaVersao)}_{carimbo}";
-        }
-
-        /// <summary>Maior versão já usada entre as vistas 3D de conforto, ou 0.</summary>
-        private int ObterMaiorVersaoExistente()
-        {
-            string padrao = "^"
-                + Regex.Escape($"{ConfiguracaoDeNomeDeVista.Prefixo}_{ConfiguracaoDeNomeDeVista.AssuntoConforto}_")
-                + Regex.Escape(ConfiguracaoDeNomeDeVista.PrefixoDeVersao)
-                + @"(?<versao>\d+)_";
-
-            int maior = 0;
-
-            foreach (var vista in new FilteredElementCollector(_documento).OfClass(typeof(View3D)).Cast<View3D>())
-            {
-                var casamento = Regex.Match(vista.Name, padrao, RegexOptions.IgnoreCase);
-
-                if (casamento.Success
-                    && int.TryParse(casamento.Groups["versao"].Value, out int versao)
-                    && versao > maior)
-                {
-                    maior = versao;
-                }
-            }
-
-            return maior;
         }
 
         // ── Utilitários de vista ─────────────────────────────────────────

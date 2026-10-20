@@ -18,6 +18,9 @@ namespace MackTwin.Processamento
     ///
     /// A classificação é pela ÚLTIMA leitura — é o estado atual da sala —, e a média existe para
     /// contextualizá-la, não para substituí-la.
+    ///
+    /// As leituras do ambiente já chegam ordenadas e consolidadas (<see cref="Ambiente.Leituras"/>),
+    /// então o início da janela é achado por busca binária, sem percorrer a série.
     /// </remarks>
     public static class CalculadorDeResumoDoAmbiente
     {
@@ -25,12 +28,11 @@ namespace MackTwin.Processamento
         public static readonly TimeSpan JanelaPadrao =
             TimeSpan.FromHours(ConfiguracaoDaPlanilhaGoogle.JanelaPadraoDaSerieEmHoras);
 
-        /// <summary>Resume a sala na janela informada (padrão: <see cref="JanelaPadrao"/>; null = tudo).</summary>
+        /// <summary>Resume a sala na janela informada (null = todas as leituras).</summary>
         public static ResumoDoAmbiente Resumir(Ambiente ambiente, TimeSpan? janela)
         {
-            var todas = ambiente.Leituras.ToList();
-            var ultima = todas.Count == 0 ? null : todas[todas.Count - 1];
-            var consideradas = FiltrarJanela(todas, ultima, janela);
+            var ultima = ambiente.UltimaLeitura;
+            var consideradas = FiltrarJanela(ambiente.Leituras, ultima, janela);
 
             var temperatura = Calcular(
                 consideradas.Where(l => l.TemTemperatura).Select(l => l.Temperatura),
@@ -56,9 +58,6 @@ namespace MackTwin.Processamento
             };
         }
 
-        /// <summary>Resume a sala na janela padrão.</summary>
-        public static ResumoDoAmbiente Resumir(Ambiente ambiente) => Resumir(ambiente, JanelaPadrao);
-
         /// <summary>
         /// Estatística de uma sequência de valores válidos. Sequência vazia produz NaN em tudo e
         /// classificação <see cref="ClassificacaoDeConforto.SemDados"/>.
@@ -68,9 +67,21 @@ namespace MackTwin.Processamento
             double ultimo,
             Func<double, ClassificacaoDeConforto> classificar)
         {
-            var lista = valores.Where(v => !double.IsNaN(v)).ToList();
+            int quantidade = 0;
+            double soma = 0, minimo = double.PositiveInfinity, maximo = double.NegativeInfinity;
 
-            if (lista.Count == 0)
+            foreach (double valor in valores)
+            {
+                if (double.IsNaN(valor))
+                    continue;
+
+                quantidade++;
+                soma += valor;
+                if (valor < minimo) minimo = valor;
+                if (valor > maximo) maximo = valor;
+            }
+
+            if (quantidade == 0)
             {
                 return new EstatisticaDaGrandeza
                 {
@@ -82,30 +93,59 @@ namespace MackTwin.Processamento
             return new EstatisticaDaGrandeza
             {
                 Ultimo = ultimo,
-                Media = lista.Average(),
-                Minimo = lista.Min(),
-                Maximo = lista.Max(),
-                Quantidade = lista.Count,
+                Media = soma / quantidade,
+                Minimo = minimo,
+                Maximo = maximo,
+                Quantidade = quantidade,
                 Classificacao = classificar(ultimo),
             };
         }
 
         /// <summary>
-        /// As leituras dentro da janela terminada na última leitura. Janela nula devolve tudo.
+        /// As leituras dentro da janela terminada na última leitura. Janela nula devolve a
+        /// própria lista; janela que cobre tudo também — sem cópia.
         /// </summary>
-        public static List<Leitura> FiltrarJanela(IReadOnlyList<Leitura> leituras, Leitura? ultima, TimeSpan? janela)
+        public static IReadOnlyList<Leitura> FiltrarJanela(IReadOnlyList<Leitura> leituras, Leitura? ultima, TimeSpan? janela)
         {
-            if (ultima == null)
-                return new List<Leitura>();
+            if (ultima == null || leituras.Count == 0)
+                return Array.Empty<Leitura>();
 
             if (janela == null)
-                return leituras.ToList();
+                return leituras;
 
             DateTime inicio = ultima.Timestamp - janela.Value;
-            return leituras.Where(l => l.Timestamp >= inicio).ToList();
+            int primeiro = PrimeiroIndiceAPartirDe(leituras, inicio);
+
+            if (primeiro == 0)
+                return leituras;
+
+            var dentro = new List<Leitura>(leituras.Count - primeiro);
+
+            for (int indice = primeiro; indice < leituras.Count; indice++)
+                dentro.Add(leituras[indice]);
+
+            return dentro;
         }
 
-        private static double UltimoValor(List<Leitura> leituras, Func<Leitura, bool> tem, Func<Leitura, double> valor)
+        /// <summary>Busca binária: índice da primeira leitura com carimbo ≥ <paramref name="instante"/>.</summary>
+        private static int PrimeiroIndiceAPartirDe(IReadOnlyList<Leitura> leituras, DateTime instante)
+        {
+            int baixo = 0, alto = leituras.Count;
+
+            while (baixo < alto)
+            {
+                int meio = baixo + (alto - baixo) / 2;
+
+                if (leituras[meio].Timestamp < instante)
+                    baixo = meio + 1;
+                else
+                    alto = meio;
+            }
+
+            return baixo;
+        }
+
+        private static double UltimoValor(IReadOnlyList<Leitura> leituras, Func<Leitura, bool> tem, Func<Leitura, double> valor)
         {
             for (int indice = leituras.Count - 1; indice >= 0; indice--)
             {

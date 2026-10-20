@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Media;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
+using MackTwin.Interface.Recursos;
 using MackTwin.Processamento;
 
 namespace MackTwin.Interface.Modelos
@@ -12,24 +15,30 @@ namespace MackTwin.Interface.Modelos
     /// textos/cores prontos para o <c>DataTemplate</c>.
     /// </summary>
     /// <remarks>
-    /// Tudo o que a lista exibe é calculado aqui, uma vez por ciclo, para que o XAML só faça
-    /// <c>Binding</c> direto — sem conversores e sem lógica de formatação espalhada.
-    /// <see cref="ModoEdicao"/> é o estado global copiado para dentro da linha: é o que os
-    /// gatilhos do template combinam com "selecionado" para mostrar o cadastro da sala.
+    /// A linha é <b>atualizada em lugar</b> a cada ciclo, em vez de recriada: a lista mantém a
+    /// seleção, a rolagem e os itens visuais, e só o que mudou é redesenhado — é para isso que
+    /// ela implementa <see cref="INotifyPropertyChanged"/>. <see cref="Assinatura"/> resume o
+    /// que afeta cartões e gráfico, para que a janela só os reconstrua quando a sala exibida
+    /// realmente mudou. <see cref="ModoEdicao"/> é o estado global copiado para dentro da linha:
+    /// é o que os gatilhos do template combinam com "selecionado" para mostrar o cadastro.
     /// </remarks>
-    public sealed class LinhaDeAmbiente
+    public sealed class LinhaDeAmbiente : INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs TudoMudou = new(string.Empty);
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         /// <summary>A sala.</summary>
-        public Ambiente Ambiente { get; }
+        public Ambiente Ambiente { get; private set; }
 
         /// <summary>O resumo na janela de tempo escolhida.</summary>
-        public ResumoDoAmbiente Resumo { get; }
+        public ResumoDoAmbiente Resumo { get; private set; }
 
         /// <summary>As planilhas desta sala (marcadas com ela ou que a alimentam).</summary>
-        public IReadOnlyList<PlanilhaRegistrada> Planilhas { get; }
+        public IReadOnlyList<PlanilhaRegistrada> Planilhas { get; private set; }
 
-        /// <summary>Se a janela está em modo Editar quando esta linha foi montada.</summary>
-        public bool ModoEdicao { get; }
+        /// <summary>Se a janela está em modo Editar.</summary>
+        public bool ModoEdicao { get; private set; }
 
         /// <summary>Código da sala (chave).</summary>
         public string Codigo => Ambiente.Codigo;
@@ -38,13 +47,13 @@ namespace MackTwin.Interface.Modelos
         public string Titulo => Ambiente.Titulo;
 
         /// <summary>Última temperatura e umidade, com a hora.</summary>
-        public string Detalhe { get; }
+        public string Detalhe { get; private set; } = string.Empty;
 
         /// <summary>"Room nº X no modelo" ou "sem Room correspondente".</summary>
-        public string Casamento { get; }
+        public string Casamento { get; private set; } = string.Empty;
 
         /// <summary>Pincel da classificação geral, para o indicador colorido.</summary>
-        public Brush Cor { get; }
+        public Brush Cor { get; private set; } = Brushes.Transparent;
 
         /// <summary>Texto da classificação geral.</summary>
         public string Classificacao => ClassificadorDeConforto.Descrever(Resumo.ClassificacaoGeral);
@@ -60,11 +69,32 @@ namespace MackTwin.Interface.Modelos
         /// <summary>Rótulo do botão de cadastro, com o nome da sala para não haver dúvida.</summary>
         public string RotuloDeAdicionar => $"+  Adicionar planilha a {Codigo}";
 
+        /// <summary>
+        /// O que define cartões e gráfico desta sala: última leitura, sensores, janela e Room.
+        /// Igual entre dois ciclos = nada a redesenhar.
+        /// </summary>
+        public string Assinatura { get; private set; } = string.Empty;
+
         public LinhaDeAmbiente(
             Ambiente ambiente,
             ResumoDoAmbiente resumo,
             IReadOnlyList<PlanilhaRegistrada> planilhas,
-            bool modoEdicao)
+            bool modoEdicao,
+            TimeSpan? janela)
+        {
+            Ambiente = ambiente;
+            Resumo = resumo;
+            Planilhas = planilhas;
+            Atualizar(ambiente, resumo, planilhas, modoEdicao, janela);
+        }
+
+        /// <summary>Troca o conteúdo da linha e avisa os bindings — sem recriar o item visual.</summary>
+        public void Atualizar(
+            Ambiente ambiente,
+            ResumoDoAmbiente resumo,
+            IReadOnlyList<PlanilhaRegistrada> planilhas,
+            bool modoEdicao,
+            TimeSpan? janela)
         {
             Ambiente = ambiente;
             Resumo = resumo;
@@ -75,11 +105,16 @@ namespace MackTwin.Interface.Modelos
             Casamento = ambiente.CasadoComOModelo
                 ? $"Room {ambiente.NumeroNoModelo} no modelo"
                 : "sem Room correspondente no modelo";
+            Cor = Paleta.Pincel(Paleta.CorDeConforto(resumo.ClassificacaoGeral));
 
-            var (r, g, b) = CoresDeConforto.ParaRgb(CoresDeConforto.Para(resumo.ClassificacaoGeral));
-            var pincel = new SolidColorBrush(Color.FromRgb(r, g, b));
-            pincel.Freeze();
-            Cor = pincel;
+            Assinatura = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}",
+                ambiente.Codigo,
+                ambiente.UltimaLeitura?.Timestamp.Ticks ?? 0,
+                ambiente.Sensores.Count,
+                janela?.Ticks ?? -1,
+                ambiente.IdDoElementoNoModelo ?? 0);
+
+            PropertyChanged?.Invoke(this, TudoMudou);
         }
 
         private static string MontarDetalhe(ResumoDoAmbiente resumo)

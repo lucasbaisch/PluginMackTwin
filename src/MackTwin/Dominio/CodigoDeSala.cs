@@ -31,12 +31,5 @@ namespace MackTwin.Dominio
 
             return resultado.ToString();
         }
-
-        /// <summary>Se dois códigos designam a mesma sala. Vazio nunca casa com nada.</summary>
-        public static bool SaoIguais(string? primeiro, string? segundo)
-        {
-            string a = Normalizar(primeiro);
-            return a.Length > 0 && a == Normalizar(segundo);
-        }
     }
 }
