@@ -100,7 +100,6 @@ namespace MackTwin.Interface
             await AtualizarAsync();
         }
 
-
         // ── Salas cadastradas à mão ──────────────────────────────────────
 
         private async void BotaoAdicionarSala_Click(object sender, RoutedEventArgs evento)

@@ -60,12 +60,12 @@ namespace MackTwin.Processamento
 
                 if (!sensoresPorHostname.TryGetValue(hostname, out var sensor))
                 {
-                    AnalisadorDeHostname.TentarIdentificar(hostname, out var identificacao);
+                    bool noPadrao = AnalisadorDeHostname.TentarIdentificar(hostname, out _, out string dispositivo);
 
                     sensor = new Sensor
                     {
                         Hostname = hostname,
-                        Identificacao = identificacao,
+                        NumeroDoDispositivo = noPadrao ? dispositivo : null,
                         CodigoDaSala = ResolvedorDeSala.Resolver(hostname, codigosCadastrados),
                     };
                     sensoresPorHostname[hostname] = sensor;

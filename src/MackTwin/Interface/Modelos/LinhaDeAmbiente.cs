@@ -143,7 +143,5 @@ namespace MackTwin.Interface.Modelos
             return string.Format(cultura, "{0} · {1} · {2:dd/MM HH:mm}",
                 temperatura, umidade, resumo.UltimaLeitura.Timestamp);
         }
-
-        public override string ToString() => Titulo;
     }
 }

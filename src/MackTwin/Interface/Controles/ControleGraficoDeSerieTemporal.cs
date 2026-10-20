@@ -37,7 +37,7 @@ namespace MackTwin.Interface.Controles
     public sealed class ControleGraficoDeSerieTemporal : UserControl
     {
         /// <summary>Teto de pontos brutos desenhados por série; acima disso a série é reamostrada.</summary>
-        public const int MaximoDePontos = 1500;
+        private const int MaximoDePontos = 1500;
 
         private const double MargemEsquerda = 48;
         private const double MargemDireita = 16;

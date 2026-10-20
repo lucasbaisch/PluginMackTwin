@@ -157,7 +157,7 @@ namespace MackTwin.Configuracao
         public const string PadraoDeHostname =
             @"^(?<instituicao>[A-Z]{2})(?<unidade>[A-Z]{3})(?<sala>[A-Z]+\d+)-(?<dispositivo>\d+)$";
 
-        /// <summary>Janela padrão da série temporal exibida, em horas, contada da última leitura.</summary>
+        /// <summary>Período padrão dos gráficos e do resumo, em horas, contado do relógio de agora para trás.</summary>
         public const int JanelaPadraoDaSerieEmHoras = 6;
 
         /// <summary>
@@ -270,7 +270,7 @@ namespace MackTwin.Configuracao
         /// <summary>Descrição longa do botão principal.</summary>
         public const string DescricaoLongaDoBotao =
             "Lê as planilhas dos sensores do CCT Mackenzie Campinas, associa cada sensor à sua " +
-            "sala pelo nome do dispositivo e mostra as leituras em cartões, série temporal e " +
+            "sala pelo nome do dispositivo e mostra as leituras em cartões, gráficos e " +
             "sobre o próprio modelo. Requer uma planta ou vista 3D ativa.";
 
         /// <summary>Identificador interno do botão de verificação. Único, como o principal.</summary>
@@ -301,8 +301,7 @@ namespace MackTwin.Configuracao
 
         /// <summary>
         /// Nome do recurso embutido correspondente, usado quando o arquivo em disco não existe
-        /// (caso do AddinManager, que copia só o DLL para %TEMP%). O MSBuild preserva o espaço do
-        /// nome do arquivo ao gerar o nome do recurso.
+        /// (caso do AddinManager, que copia só o DLL para %TEMP%).
         /// </summary>
         public const string NomeDoRecursoDoIcone = "MackTwin.Assets." + NomeDoArquivoDoIcone;
 

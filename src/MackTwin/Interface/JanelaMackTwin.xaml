@@ -215,30 +215,30 @@
                             <StackPanel Margin="0,4,0,0">
                                 <TextBlock Text="PINTURA POR CONFORTO" Style="{StaticResource EstiloTituloDeSecao}"/>
                                 <WrapPanel>
-                                    <Button x:Name="BotaoPintar" Content="Pintar salas na vista ativa"
+                                    <Button Content="Pintar salas na vista ativa"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoPintar_Click"/>
-                                    <Button x:Name="BotaoLimpar" Content="Limpar pintura"
+                                    <Button Content="Limpar pintura"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoLimpar_Click"/>
-                                    <Button x:Name="BotaoVista3D" Content="Gerar vista 3D de conforto"
+                                    <Button Content="Gerar vista 3D de conforto"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoVista3D_Click"/>
                                 </WrapPanel>
 
 
                                 <TextBlock Text="SALA SELECIONADA E APOIO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
                                 <WrapPanel>
-                                    <Button x:Name="BotaoMostrar" Content="Mostrar sala no modelo"
+                                    <Button Content="Mostrar sala no modelo"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoMostrar_Click"/>
-                                    <Button x:Name="BotaoDiagnostico" Content="Diagnóstico do modelo"
+                                    <Button Content="Diagnóstico do modelo"
                                             ToolTip="Lista Rooms, vista ativa, categorias e casamentos nos avisos (e copia para a área de transferência)"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoDiagnostico_Click"/>
                                 </WrapPanel>
 
                                 <TextBlock Text="EXPORTAÇÃO" Style="{StaticResource EstiloTituloDeSecao}" Margin="0,6,0,10"/>
                                 <WrapPanel>
-                                    <Button x:Name="BotaoExportarVideo" Content="Exportar vídeo do último dia"
+                                    <Button Content="Exportar vídeo do último dia"
                                             ToolTip="Como o estudo solar nativo: a vista 3D de conforto fotografada a cada hora das últimas 24 h — GIF animado + quadros PNG em Documentos\MackTwin"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoExportarVideo_Click"/>
-                                    <Button x:Name="BotaoGerarFolha" Content="Gerar folha para impressão"
+                                    <Button Content="Gerar folha para impressão"
                                             ToolTip="Uma folha por nível: plantas de temperatura e de umidade lado a lado, cada uma com a sua legenda de cores"
                                             Style="{StaticResource EstiloBotaoSecundario}" Click="BotaoGerarFolha_Click"/>
                                 </WrapPanel>

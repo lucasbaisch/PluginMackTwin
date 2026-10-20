@@ -36,8 +36,7 @@ Nenhum. O alvo só roda em **Release**; compilar em Debug não empacota nada.
 %ProgramData%\Autodesk\Revit\Addins\2026\
     MackTwin.addin             <- manifesto que o Revit lê na inicialização
     MackTwin\
-        MackTwin.dll
-        LiveCharts*.dll, ...
+        MackTwin.dll (e os .json de configuração do runtime)
         Assets\icone-macktwin.png
 ```
 

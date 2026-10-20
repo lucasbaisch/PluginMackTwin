@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
 
 namespace MackTwin.Processamento
 {
     /// <summary>
-    /// Resume uma sala: última leitura, média/mínimo/máximo de cada grandeza numa janela de
-    /// tempo e a classificação geral que define a cor.
+    /// Resume uma sala: última leitura e, para cada grandeza, o último valor dentro de uma
+    /// janela de tempo e a classificação que define a cor.
     /// </summary>
     /// <remarks>
     /// A janela é contada <b>do instante de referência para trás</b> — o relógio de agora, na
@@ -20,8 +19,7 @@ namespace MackTwin.Processamento
     /// vídeo do último dia usa: o estado que a sala tinha às 14 h é o da última leitura até
     /// 14 h, desde que não mais velha que a tolerância.
     ///
-    /// A classificação é pela ÚLTIMA leitura dentro da janela — é o estado atual da sala —, e a
-    /// média existe para contextualizá-la, não para substituí-la.
+    /// A classificação é pela ÚLTIMA leitura dentro da janela — é o estado atual da sala.
     ///
     /// As leituras do ambiente já chegam ordenadas e consolidadas (<see cref="Ambiente.Leituras"/>),
     /// então os limites da janela são achados por busca binária, sem percorrer a série.
@@ -49,70 +47,48 @@ namespace MackTwin.Processamento
 
         private static ResumoDoAmbiente ResumirConsideradas(Ambiente ambiente, IReadOnlyList<Leitura> consideradas)
         {
-            var temperatura = Calcular(
-                consideradas.Where(l => l.TemTemperatura).Select(l => l.Temperatura),
-                UltimoValor(consideradas, l => l.TemTemperatura, l => l.Temperatura),
-                ClassificadorDeConforto.ClassificarTemperatura);
-
-            var umidade = Calcular(
-                consideradas.Where(l => l.TemUmidade).Select(l => l.Umidade),
-                UltimoValor(consideradas, l => l.TemUmidade, l => l.Umidade),
-                ClassificadorDeConforto.ClassificarUmidade);
+            var temperatura = Calcular(consideradas, l => l.TemTemperatura, l => l.Temperatura, ClassificadorDeConforto.ClassificarTemperatura);
+            var umidade = Calcular(consideradas, l => l.TemUmidade, l => l.Umidade, ClassificadorDeConforto.ClassificarUmidade);
 
             return new ResumoDoAmbiente
             {
-                Codigo = ambiente.Codigo,
                 UltimaLeitura = ambiente.UltimaLeitura,
                 Temperatura = temperatura,
                 Umidade = umidade,
                 ClassificacaoGeral = ClassificadorDeConforto.Combinar(temperatura.Classificacao, umidade.Classificacao),
                 TotalDeLeituras = consideradas.Count,
-                Inicio = consideradas.Count == 0 ? null : consideradas[0].Timestamp,
-                Fim = consideradas.Count == 0 ? null : consideradas[consideradas.Count - 1].Timestamp,
-                QuantidadeDeSensores = ambiente.Sensores.Count,
             };
         }
 
         /// <summary>
-        /// Estatística de uma sequência de valores válidos. Sequência vazia produz NaN em tudo e
-        /// classificação <see cref="ClassificacaoDeConforto.SemDados"/>.
+        /// Estado de uma grandeza nas leituras consideradas: quantas têm valor e o último deles,
+        /// classificado. Sem valor nenhum, NaN e <see cref="ClassificacaoDeConforto.SemDados"/>.
         /// </summary>
-        public static EstatisticaDaGrandeza Calcular(
-            IEnumerable<double> valores,
-            double ultimo,
+        private static EstatisticaDaGrandeza Calcular(
+            IReadOnlyList<Leitura> leituras,
+            Func<Leitura, bool> tem,
+            Func<Leitura, double> valor,
             Func<double, ClassificacaoDeConforto> classificar)
         {
             int quantidade = 0;
-            double soma = 0, minimo = double.PositiveInfinity, maximo = double.NegativeInfinity;
+            double ultimo = double.NaN;
 
-            foreach (double valor in valores)
+            for (int indice = leituras.Count - 1; indice >= 0; indice--)
             {
-                if (double.IsNaN(valor))
+                if (!tem(leituras[indice]))
                     continue;
 
-                quantidade++;
-                soma += valor;
-                if (valor < minimo) minimo = valor;
-                if (valor > maximo) maximo = valor;
-            }
+                if (quantidade == 0)
+                    ultimo = valor(leituras[indice]);
 
-            if (quantidade == 0)
-            {
-                return new EstatisticaDaGrandeza
-                {
-                    Ultimo = double.NaN,
-                    Classificacao = ClassificacaoDeConforto.SemDados,
-                };
+                quantidade++;
             }
 
             return new EstatisticaDaGrandeza
             {
                 Ultimo = ultimo,
-                Media = soma / quantidade,
-                Minimo = minimo,
-                Maximo = maximo,
                 Quantidade = quantidade,
-                Classificacao = classificar(ultimo),
+                Classificacao = quantidade == 0 ? ClassificacaoDeConforto.SemDados : classificar(ultimo),
             };
         }
 
@@ -137,10 +113,7 @@ namespace MackTwin.Processamento
             if (leituras.Count == 0 || fim < inicio)
                 return Array.Empty<Leitura>();
 
-            int primeiro = PrimeiroIndiceAPartirDe(leituras, inicio);
-            int depoisDoUltimo = PrimeiroIndiceDepoisDe(leituras, fim);
-
-            return Fatiar(leituras, primeiro, depoisDoUltimo);
+            return Fatiar(leituras, PrimeiroIndiceAPartirDe(leituras, inicio), PrimeiroIndiceDepoisDe(leituras, fim));
         }
 
         private static IReadOnlyList<Leitura> Fatiar(IReadOnlyList<Leitura> leituras, int primeiro, int depoisDoUltimo)
@@ -193,17 +166,6 @@ namespace MackTwin.Processamento
             }
 
             return baixo;
-        }
-
-        private static double UltimoValor(IReadOnlyList<Leitura> leituras, Func<Leitura, bool> tem, Func<Leitura, double> valor)
-        {
-            for (int indice = leituras.Count - 1; indice >= 0; indice--)
-            {
-                if (tem(leituras[indice]))
-                    return valor(leituras[indice]);
-            }
-
-            return double.NaN;
         }
     }
 }

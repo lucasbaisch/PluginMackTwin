@@ -29,8 +29,6 @@ namespace MackTwin.Configuracao
         /// sala que cada HOSTNAME indica (<see cref="Processamento.ResolvedorDeSala"/>).
         /// </remarks>
         public string? Sala { get; set; }
-
-        public override string ToString() => Nome;
     }
 
     /// <summary>Um ambiente cadastrado à mão: nome (que casa com o Room) e código (o HOSTNAME do sensor).</summary>
@@ -44,8 +42,6 @@ namespace MackTwin.Configuracao
 
         /// <summary>Nome do ambiente — é o que casa com o Número ou Nome do Room no modelo.</summary>
         public string? Nome { get; set; }
-
-        public override string ToString() => string.IsNullOrWhiteSpace(Nome) ? CodigoExibido : Nome;
     }
 
     /// <summary>
@@ -88,7 +84,7 @@ namespace MackTwin.Configuracao
             new HashSet<string>(Salas.Select(sala => sala.Codigo), StringComparer.Ordinal);
 
         /// <summary>Cadastro inicial: só a planilha do DHT22, sem sala marcada (inferida pelos HOSTNAMEs).</summary>
-        public static RegistroDePlanilhas Padrao()
+        private static RegistroDePlanilhas Padrao()
         {
             return new RegistroDePlanilhas
             {

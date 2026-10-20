@@ -14,9 +14,10 @@ namespace MackTwin.Dominio
         public string EnderecoMac { get; set; } = string.Empty;
 
         /// <summary>
-        /// As partes do HOSTNAME, ou null quando o nome não segue o padrão — sensor sem sala.
+        /// Número do dispositivo dentro da sala, como texto para preservar os zeros à esquerda
+        /// ("001"), ou null quando o HOSTNAME não segue o padrão.
         /// </summary>
-        public IdentificacaoDeSensor? Identificacao { get; init; }
+        public string? NumeroDoDispositivo { get; init; }
 
         /// <summary>Leituras em ordem cronológica crescente.</summary>
         public List<Leitura> Leituras { get; } = new();
@@ -31,10 +32,6 @@ namespace MackTwin.Dominio
         public Leitura? UltimaLeitura => Leituras.Count == 0 ? null : Leituras[Leituras.Count - 1];
 
         /// <summary>Rótulo curto para a interface: o número do dispositivo, ou o HOSTNAME inteiro.</summary>
-        public string Rotulo => Identificacao == null
-            ? Hostname
-            : $"Dispositivo {Identificacao.NumeroDoDispositivo}";
-
-        public override string ToString() => Hostname;
+        public string Rotulo => NumeroDoDispositivo == null ? Hostname : $"Dispositivo {NumeroDoDispositivo}";
     }
 }

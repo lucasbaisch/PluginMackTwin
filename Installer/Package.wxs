@@ -45,10 +45,9 @@
       </Component>
     </ComponentGroup>
 
-    <!-- Empacota a pasta de saída inteira: MackTwin.dll, LiveCharts, satélites de
-         idioma e Assets\icone-macktwin.png. Não é preciso listar DLL por DLL —
-         acrescentar um PackageReference no csproj passa a ser refletido aqui sem
-         nenhuma edição. -->
+    <!-- Empacota a pasta de saída inteira: MackTwin.dll, os arquivos de configuração do
+         runtime e Assets\icone-macktwin.png. Não é preciso listar arquivo por arquivo —
+         uma dependência nova no csproj passa a ser refletida aqui sem nenhuma edição. -->
     <Files Include="$(var.MackTwin.TargetDir)\**" Directory="INSTALLFOLDER">
       <Exclude Files="$(var.MackTwin.TargetDir)\**\*.pdb" />
     </Files>

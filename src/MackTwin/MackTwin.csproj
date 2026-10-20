@@ -59,9 +59,8 @@
 
   <Target Name="ImplantarNoRevit" AfterTargets="Build">
     <ItemGroup>
-      <!-- Tudo o que o build produziu, e não só o DLL do plugin: as dependências
-           (LiveCharts) e os arquivos de configuração do runtime precisam
-           acompanhar, ou o Revit carrega o complemento e ele falha ao abrir a janela. -->
+      <!-- Tudo o que o build produziu, e não só o DLL do plugin: a pasta Assets\ e os
+           arquivos de configuração do runtime precisam acompanhar. -->
       <ArquivosImplantaveis Include="$(TargetDir)**\*.*" Exclude="$(TargetDir)**\*.pdb" />
     </ItemGroup>
 

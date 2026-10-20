@@ -218,7 +218,7 @@ namespace MackTwin.Revit
         }
 
         /// <summary>Monta <c>MackTwin_Conforto_vNN_carimbo</c>.</summary>
-        public static string ComporNomeDaVista(int versao, string carimbo)
+        private static string ComporNomeDaVista(int versao, string carimbo)
         {
             return $"{ConfiguracaoDeNomeDeVista.Prefixo}_{ConfiguracaoDeNomeDeVista.AssuntoConforto}_" +
                    $"{ConfiguracaoDeNomeDeVista.PrefixoDeVersao}" +

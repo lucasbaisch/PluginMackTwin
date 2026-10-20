@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using MackTwin.Configuracao;
 using MackTwin.Dominio;
@@ -12,7 +11,7 @@ namespace MackTwin.Parsing
     /// <c>MMCCTLAB001-001</c> → sala LAB001, dispositivo 001. É o que casa o sensor com o Room
     /// sem cadastro manual: todo dispositivo instalado com um nome nesse padrão aparece sozinho
     /// na sala certa. O padrão inteiro é validado (instituição e unidade inclusive), mas só o
-    /// que o painel consome é guardado. Nomes fora do padrão não são erro — o sensor existe e
+    /// que o painel consome é devolvido. Nomes fora do padrão não são erro — o sensor existe e
     /// tem leituras —, só não têm sala; a interface os lista à parte para que alguém os renomeie.
     ///
     /// A comparação ignora caixa e espaços nas pontas, porque é assim que nomes de rede chegam
@@ -26,38 +25,31 @@ namespace MackTwin.Parsing
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         /// <summary>
-        /// Tenta separar as partes do HOSTNAME. Devolve false, com identificação nula, quando o
-        /// nome não segue o padrão.
+        /// Separa as partes do HOSTNAME: o código normalizado da sala e o número do dispositivo
+        /// como texto. Devolve false, com saídas vazias, quando o nome não segue o padrão.
         /// </summary>
-        public static bool TentarIdentificar(string? hostname, [NotNullWhen(true)] out IdentificacaoDeSensor? identificacao)
+        public static bool TentarIdentificar(string? hostname, out string codigoDaSala, out string numeroDoDispositivo)
         {
-            identificacao = null;
+            codigoDaSala = string.Empty;
+            numeroDoDispositivo = string.Empty;
 
             if (string.IsNullOrWhiteSpace(hostname))
                 return false;
 
-            string texto = hostname.Trim();
-            var casamento = Padrao.Match(texto);
+            var casamento = Padrao.Match(hostname.Trim());
 
             if (!casamento.Success)
                 return false;
 
-            identificacao = new IdentificacaoDeSensor
-            {
-                Hostname = texto,
-                CodigoDaSala = CodigoDeSala.Normalizar(casamento.Groups["sala"].Value),
-                NumeroDoDispositivo = casamento.Groups["dispositivo"].Value,
-            };
-
+            codigoDaSala = CodigoDeSala.Normalizar(casamento.Groups["sala"].Value);
+            numeroDoDispositivo = casamento.Groups["dispositivo"].Value;
             return true;
         }
 
         /// <summary>Só o código normalizado da sala, ou vazio se o nome não segue o padrão.</summary>
         public static string ExtrairCodigoDaSala(string? hostname)
         {
-            return TentarIdentificar(hostname, out var identificacao)
-                ? identificacao.CodigoDaSala
-                : string.Empty;
+            return TentarIdentificar(hostname, out string codigoDaSala, out _) ? codigoDaSala : string.Empty;
         }
     }
 }

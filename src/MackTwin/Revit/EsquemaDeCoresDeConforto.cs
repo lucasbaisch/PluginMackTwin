@@ -116,7 +116,7 @@ namespace MackTwin.Revit
         /// Garante o parâmetro da grandeza vinculado a Ambientes e devolve o seu ElementId (o
         /// que o esquema de cores referencia).
         /// </summary>
-        public static ElementId GarantirParametro(Document documento, GrandezaDeConforto grandeza)
+        private static ElementId GarantirParametro(Document documento, GrandezaDeConforto grandeza)
         {
             string nome = NomeDoParametro(grandeza);
 

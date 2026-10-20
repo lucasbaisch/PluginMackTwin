@@ -126,7 +126,5 @@ namespace MackTwin.Dominio
             todas.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
             return todas;
         }
-
-        public override string ToString() => Titulo;
     }
 }

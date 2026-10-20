@@ -267,23 +267,18 @@ namespace MackTwin.Verificacao
 
         private static void VerificarHostname(List<ResultadoDeVerificacao> resultados)
         {
-            bool reconhecido = AnalisadorDeHostname.TentarIdentificar("MMCCTLAB001-001", out var id);
+            bool reconhecido = AnalisadorDeHostname.TentarIdentificar("MMCCTLAB001-001", out string sala, out string dispositivo);
 
             Afirmar(resultados, "MMCCTLAB001-001 é reconhecido", reconhecido);
-
-            if (reconhecido && id != null)
-            {
-                Afirmar(resultados, "MMCCTLAB001-001 → sala LAB001", id.CodigoDaSala == "LAB001", $"obtido {id.CodigoDaSala}");
-                Afirmar(resultados, "MMCCTLAB001-001 → dispositivo \"001\" (zeros preservados)",
-                        id.NumeroDoDispositivo == "001", $"obtido {id.NumeroDoDispositivo}");
-            }
+            Afirmar(resultados, "MMCCTLAB001-001 → sala LAB001", sala == "LAB001", $"obtido {sala}");
+            Afirmar(resultados, "MMCCTLAB001-001 → dispositivo \"001\" (zeros preservados)", dispositivo == "001", $"obtido {dispositivo}");
 
             Afirmar(resultados, "Caixa baixa (mmcctlab001-001) é aceita e normalizada para LAB001",
                     AnalisadorDeHostname.ExtrairCodigoDaSala("mmcctlab001-001") == "LAB001");
 
             Afirmar(resultados, "Espaços nas pontas são tolerados",
-                    AnalisadorDeHostname.TentarIdentificar(" MMCCTLAB001-002 ", out var comEspacos)
-                    && comEspacos.NumeroDoDispositivo == "002");
+                    AnalisadorDeHostname.TentarIdentificar(" MMCCTLAB001-002 ", out _, out string comEspacos)
+                    && comEspacos == "002");
 
             Afirmar(resultados, "Um segundo sensor da mesma sala (MMCCTLAB001-002) aponta para LAB001",
                     AnalisadorDeHostname.ExtrairCodigoDaSala("MMCCTLAB001-002") == "LAB001");
@@ -292,13 +287,13 @@ namespace MackTwin.Verificacao
                     AnalisadorDeHostname.ExtrairCodigoDaSala("MMCCTSALA12-003") == "SALA12");
 
             Afirmar(resultados, "Sem número de dispositivo (MMCCTLAB001) não é reconhecido",
-                    !AnalisadorDeHostname.TentarIdentificar("MMCCTLAB001", out _));
+                    !AnalisadorDeHostname.TentarIdentificar("MMCCTLAB001", out _, out _));
 
             Afirmar(resultados, "Nome fora do padrão (SENSOR-X) não é reconhecido",
-                    !AnalisadorDeHostname.TentarIdentificar("SENSOR-X", out _));
+                    !AnalisadorDeHostname.TentarIdentificar("SENSOR-X", out _, out _));
 
             Afirmar(resultados, "Vazio e nulo não são reconhecidos",
-                    !AnalisadorDeHostname.TentarIdentificar("", out _) && !AnalisadorDeHostname.TentarIdentificar(null, out _));
+                    !AnalisadorDeHostname.TentarIdentificar("", out _, out _) && !AnalisadorDeHostname.TentarIdentificar(null, out _, out _));
         }
 
         // ── Código de sala (chave sensor ↔ Room) ────────────────────────
@@ -478,15 +473,11 @@ namespace MackTwin.Verificacao
                     umDiaDepois.TotalDeLeituras == 0 && umDiaDepois.ClassificacaoGeral == ClassificacaoDeConforto.SemDados
                     && umDiaDepois.UltimaLeitura != null && umDiaDepois.UltimaLeitura.Timestamp == referencia);
 
-            Afirmar(resultados, "Temperatura na janela: última 27, média 25,5, mín 24, máx 27",
-                    Math.Abs(seisHoras.Temperatura.Ultimo - 27) < Folga
-                    && Math.Abs(seisHoras.Temperatura.Media - 25.5) < Folga
-                    && Math.Abs(seisHoras.Temperatura.Minimo - 24) < Folga
-                    && Math.Abs(seisHoras.Temperatura.Maximo - 27) < Folga,
-                    $"obtido {Formatar(seisHoras.Temperatura.Ultimo)} / {Formatar(seisHoras.Temperatura.Media)} / " +
-                    $"{Formatar(seisHoras.Temperatura.Minimo)} / {Formatar(seisHoras.Temperatura.Maximo)}");
+            Afirmar(resultados, "Temperatura na janela: última 27 °C, 2 leituras com valor",
+                    Math.Abs(seisHoras.Temperatura.Ultimo - 27) < Folga && seisHoras.Temperatura.Quantidade == 2,
+                    $"obtido {Formatar(seisHoras.Temperatura.Ultimo)} / {seisHoras.Temperatura.Quantidade}");
 
-            Afirmar(resultados, "A classificação é pela ÚLTIMA leitura (27 °C → acima), não pela média (25,5 → confortável)",
+            Afirmar(resultados, "A classificação é pela ÚLTIMA leitura (27 °C → acima), não pela média das duas (25,5 → confortável)",
                     seisHoras.Temperatura.Classificacao == ClassificacaoDeConforto.AcimaDaFaixa);
 
             Afirmar(resultados, "Umidade na janela: última 70 → acima",
@@ -495,17 +486,10 @@ namespace MackTwin.Verificacao
             Afirmar(resultados, "Classificação geral da sala: acima",
                     seisHoras.ClassificacaoGeral == ClassificacaoDeConforto.AcimaDaFaixa);
 
-            Afirmar(resultados, "Início e fim da janela são a primeira e a última leitura consideradas",
-                    seisHoras.Inicio == new DateTime(2026, 10, 15, 5, 0, 0) && seisHoras.Fim == new DateTime(2026, 10, 15, 10, 0, 0));
-
-            Afirmar(resultados, "O resumo registra 1 sensor na sala", seisHoras.QuantidadeDeSensores == 1);
-
             var tudo = CalculadorDeResumoDoAmbiente.Resumir(ambiente, null, referencia);
 
-            Afirmar(resultados, "Janela nula considera tudo: 3 leituras, mínimos 20 °C e 40 %",
-                    tudo.TotalDeLeituras == 3
-                    && Math.Abs(tudo.Temperatura.Minimo - 20) < Folga
-                    && Math.Abs(tudo.Umidade.Minimo - 40) < Folga);
+            Afirmar(resultados, "Janela nula considera tudo: 3 leituras, 3 valores de temperatura e de umidade",
+                    tudo.TotalDeLeituras == 3 && tudo.Temperatura.Quantidade == 3 && tudo.Umidade.Quantidade == 3);
 
             var vazio = CalculadorDeResumoDoAmbiente.Resumir(new Ambiente { Codigo = "VAZIO" }, null, referencia);
 

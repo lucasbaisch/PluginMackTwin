@@ -31,14 +31,12 @@ namespace MackTwin.Processamento
     public sealed class MonitorDePlanilhas
     {
         private readonly LeitorDePlanilhaGoogle _leitor = new();
-
-        /// <summary>O cadastro de planilhas que este monitor percorre.</summary>
-        public RegistroDePlanilhas Registro { get; }
+        private readonly RegistroDePlanilhas _registro;
 
         /// <summary>Cria o monitor sobre um cadastro já carregado.</summary>
         public MonitorDePlanilhas(RegistroDePlanilhas registro)
         {
-            Registro = registro ?? throw new ArgumentNullException(nameof(registro));
+            _registro = registro ?? throw new ArgumentNullException(nameof(registro));
         }
 
         /// <summary>
@@ -52,8 +50,8 @@ namespace MackTwin.Processamento
             var salasPorPlanilha = new Dictionary<string, IReadOnlyCollection<string>>();
             int falhas = 0;
 
-            var ativas = Registro.Ativas.ToList();
-            var codigosCadastrados = Registro.CodigosDasSalas;
+            var ativas = _registro.Ativas.ToList();
+            var codigosCadastrados = _registro.CodigosDasSalas;
 
             if (ativas.Count == 0)
                 avisos.Add("Nenhuma planilha ativa cadastrada. Ligue \"Editar\" e use \"+ adicionar\" na sala.");
@@ -87,7 +85,7 @@ namespace MackTwin.Processamento
             }
 
             var conjunto = AgrupadorDeAmbientes.Agrupar(
-                leituras, avisos, Registro.Salas.Select(sala => (sala.Codigo, sala.Nome)));
+                leituras, avisos, _registro.Salas.Select(sala => (sala.Codigo, sala.Nome)));
             conjunto.PlanilhasComFalha = falhas;
             conjunto.SalasPorPlanilha = salasPorPlanilha;
 

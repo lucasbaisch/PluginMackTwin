@@ -18,9 +18,6 @@ namespace MackTwin.Revit
         /// <summary>Pasta datada com o GIF e os quadros PNG.</summary>
         public string Pasta { get; init; } = string.Empty;
 
-        /// <summary>Caminho do GIF animado.</summary>
-        public string CaminhoDoGif { get; init; } = string.Empty;
-
         /// <summary>Quantos quadros foram gerados.</summary>
         public int Quadros { get; init; }
 
@@ -128,9 +125,7 @@ namespace MackTwin.Revit
 
             progresso?.Invoke("Gravando o GIF animado…");
 
-            string caminhoDoGif = Path.Combine(pasta, ConfiguracaoDeExportacao.NomeDoGif);
-
-            using (var arquivo = File.Create(caminhoDoGif))
+            using (var arquivo = File.Create(Path.Combine(pasta, ConfiguracaoDeExportacao.NomeDoGif)))
                 CodificadorDeGif.Gravar(quadros, arquivo);
 
             string? aviso = null;
@@ -144,7 +139,6 @@ namespace MackTwin.Revit
             return new ResultadoDaExportacaoDeVideo
             {
                 Pasta = pasta,
-                CaminhoDoGif = caminhoDoGif,
                 Quadros = quadros.Count,
                 Vista = vista,
                 Inicio = instantes[0],

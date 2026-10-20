@@ -190,9 +190,7 @@ namespace MackTwin.Revit
             return new FilteredElementCollector(_documento)
                 .OfClass(typeof(ViewPlan))
                 .Cast<ViewPlan>()
-                .Where(vista => !vista.IsTemplate && vista.ViewType == ViewType.FloorPlan && vista.GenLevel?.Id == nivel.Id)
-                .OrderByDescending(vista => vista.Name.Length == 0 ? 0 : 1)
-                .FirstOrDefault();
+                .FirstOrDefault(vista => !vista.IsTemplate && vista.ViewType == ViewType.FloorPlan && vista.GenLevel?.Id == nivel.Id);
         }
 
         private void EtiquetarRooms(ViewPlan planta, List<Room> rooms)
